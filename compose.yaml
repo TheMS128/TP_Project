@@ -1,0 +1,7 @@
+﻿services:
+  courseproject:
+    image: courseproject
+    build:
+      context: .
+      dockerfile: CourseProject/Dockerfile
+
