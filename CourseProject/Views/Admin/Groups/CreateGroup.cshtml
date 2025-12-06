@@ -1,0 +1,87 @@
+﻿@model CourseProject.Models.AdminViewModels.Group.CreateGroupViewModel
+@{
+    ViewData["Title"] = "Создать группу";
+}
+
+<h2>Создать новую группу</h2>
+<hr />
+<div class="row">
+    <div class="col-md-5">
+        <form asp-action="CreateGroup" method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+           
+            <div class="mb-3">
+                <label asp-for="GroupName" class="form-label">Название группы</label>
+                <input asp-for="GroupName" class="form-control" required />
+                <span asp-validation-for="GroupName" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Назначить свободных студентов:</label>
+
+                @{
+                    var freeStudents = Model.AvailableStudents.Where(s => s.GroupId == null).ToList();
+                }
+
+                @if (!Model.AvailableStudents.Any())
+                {
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-exclamation-circle"></i> В системе нет студентов.
+                        <br/><a asp-action="CreateStudent" class="alert-link">Создать?</a>
+                    </div>
+                }
+                else if (!freeStudents.Any())
+                {
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle"></i> Нет доступных студентов. Все уже распределены по группам.
+                    </div>
+                }
+                else
+                {
+                    <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск студента..." onkeyup="filterList(this)">
+                    
+                    <div class="border rounded p-2 student-list-container" style="max-height: 200px; overflow-y: auto;">
+                        @foreach (var student in freeStudents)
+                        {
+                            <div class="form-check student-item">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="SelectedStudentIds" 
+                                       value="@student.Id" 
+                                       id="chk_@student.Id">
+                                <label class="form-check-label small" for="chk_@student.Id">
+                                    @student.FullName
+                                </label>
+                            </div>
+                        }
+                        <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
+                    </div>
+                }
+            </div>
+           
+            <button type="submit" class="btn btn-success">Создать</button>
+            <a asp-action="ManageGroups" class="btn btn-secondary">Назад</a>
+        </form>
+    </div>
+</div>
+
+<script>
+    function filterList(input) {
+        const filter = input.value.toLowerCase();
+        const container = document.querySelector('.student-list-container');
+        const items = container.querySelectorAll('.student-item');
+        let hasVisible = false;
+
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (text.includes(filter)) {
+                item.style.display = "";
+                hasVisible = true;
+            } else {
+                item.style.display = "none";
+            }
+        });
+
+        const noRes = container.querySelector('.no-results');
+        if(noRes) noRes.style.display = hasVisible ? "none" : "block";
+    }
+</script>
