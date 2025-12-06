@@ -1,0 +1,88 @@
+﻿@using CourseProject.DataBase.Enums
+@model IEnumerable<CourseProject.DataBase.DbModels.Subject>
+
+@{
+    ViewData["Title"] = User.IsInRole("Admin") ? "Все курсы" : "Мои курсы";
+}
+
+<div class="container py-4">
+    <div class="mb-5">
+        <h2 class="fw-bold mb-1">@ViewData["Title"]</h2>
+        <p class="text-muted">
+            @if (User.IsInRole("Admin")) { <text>Полный список предметов в системе.</text> }
+            else if (User.IsInRole("Teacher")) { <text>Предметы, которые вы ведете.</text> }
+            else { <text>Предметы, доступные для обучения.</text> }
+        </p>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-journal-x display-1 text-muted"></i>
+            <p class="mt-3 lead text-muted">Предметы не найдены.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var subject in Model)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm border-0 bg-light">
+                        <div class="card-body d-flex flex-column p-4">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="icon-box bg-white text-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-mortarboard fs-4"></i>
+                                </div>
+                                
+                                @if(!User.IsInRole("Student"))
+                                {
+                                    @if(subject.Status == ContentStatus.Published) 
+                                    { <span class="badge bg-success rounded-pill">Опубликован</span> }
+                                    else if(subject.Status == ContentStatus.Hidden) 
+                                    { <span class="badge bg-secondary rounded-pill">Скрыт</span> }
+                                    else 
+                                    { <span class="badge bg-warning text-dark rounded-pill">Черновик</span> }
+                                }
+                            </div>
+
+                            <h5 class="card-title fw-bold">@subject.Title</h5>
+                            <p class="card-text text-muted small flex-grow-1">
+                                @(string.IsNullOrEmpty(subject.Description) 
+                                    ? "Описание отсутствует" 
+                                    : (subject.Description.Length > 80 ? subject.Description.Substring(0, 80) + "..." : subject.Description))
+                            </p>
+                            
+                            <hr class="text-muted my-3">
+
+                            <div class="d-flex flex-column gap-2">
+                                @if (User.IsInRole("Student"))
+                                {
+                                    <a asp-controller="Subjects" asp-action="Details" asp-route-id="@subject.Id" class="btn btn-primary w-100 rounded-pill">
+                                        <i class="bi bi-book"></i> Перейти к обучению
+                                    </a>
+                                }
+                                
+                                @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
+                                {
+                                    <div class="d-flex gap-2">
+                                        <a asp-controller="Teacher" asp-action="ManageSubject" asp-route-id="@subject.Id" class="btn btn-outline-primary w-100 rounded-pill" title="Дашборд курса">
+                                            <i class="bi bi-speedometer2"></i> Управление
+                                        </a>
+                                        
+                                        @if (User.IsInRole("Admin"))
+                                        {
+                                            <a asp-controller="Admin" asp-action="EditSubject" asp-route-id="@subject.Id" class="btn btn-outline-secondary rounded-pill" title="Настройки предмета">
+                                                <i class="bi bi-gear"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
