@@ -30,6 +30,7 @@
 
     <ItemGroup>
       <Folder Include="Migrations\" />
+      <Folder Include="Models\CourseContentViewModels\CourseContentViewModels\" />
     </ItemGroup>
 
     <ItemGroup>
