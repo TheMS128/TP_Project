@@ -81,7 +81,7 @@ namespace CourseProject.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("DateAdded")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
@@ -89,6 +89,9 @@ namespace CourseProject.Migrations
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasColumnType("text");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -144,13 +147,13 @@ namespace CourseProject.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<float>("PointsScored")
+                        .HasColumnType("real");
+
                     b.Property<int>("QuestionId")
                         .HasColumnType("integer");
 
-                    b.Property<float>("ScorePoints")
-                        .HasColumnType("real");
-
-                    b.Property<int?>("TestAttemptId")
+                    b.Property<int>("TestAttemptId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -231,22 +234,30 @@ namespace CourseProject.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("EndTime")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
 
                     b.Property<float>("Score")
                         .HasColumnType("real");
 
                     b.Property<DateTime>("StartTime")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("StudentId")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("TestId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("TestId");
 
                     b.ToTable("TestAttempts");
                 });
@@ -499,7 +510,7 @@ namespace CourseProject.Migrations
                         .IsRequired();
 
                     b.HasOne("CourseProject.DataBase.DbModels.StudentAnswer", null)
-                        .WithMany("AnswerOptions")
+                        .WithMany("SelectedOptions")
                         .HasForeignKey("StudentAnswerId");
 
                     b.Navigation("Question");
@@ -535,11 +546,15 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CourseProject.DataBase.DbModels.TestAttempt", null)
+                    b.HasOne("CourseProject.DataBase.DbModels.TestAttempt", "TestAttempt")
                         .WithMany("StudentAnswers")
-                        .HasForeignKey("TestAttemptId");
+                        .HasForeignKey("TestAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Question");
+
+                    b.Navigation("TestAttempt");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Test", b =>
@@ -561,7 +576,15 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CourseProject.DataBase.DbModels.Test", "Test")
+                        .WithMany()
+                        .HasForeignKey("TestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Student");
+
+                    b.Navigation("Test");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.User", b =>
@@ -667,7 +690,7 @@ namespace CourseProject.Migrations
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.StudentAnswer", b =>
                 {
-                    b.Navigation("AnswerOptions");
+                    b.Navigation("SelectedOptions");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Subject", b =>

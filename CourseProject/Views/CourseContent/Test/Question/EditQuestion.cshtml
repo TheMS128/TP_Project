@@ -1,0 +1,131 @@
+﻿@model CourseProject.Models.CourseContentViewModels.Test.QuestionViewModel
+@{
+    ViewData["Title"] = "Редактирование вопроса";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Редактирование вопроса</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="EditQuestion" method="post" id="questionForm">
+                        <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="TestId" />
+                        <input type="hidden" asp-for="SubjectId" />
+                        
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Text" class="form-label fw-bold">Текст вопроса</label>
+                            <textarea asp-for="Text" class="form-control" rows="2" required></textarea>
+                            <span asp-validation-for="Text" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Type" class="form-label">Тип вопроса</label>
+                                <select asp-for="Type" class="form-select">
+                                    <option value="Single">Один правильный ответ</option>
+                                    <option value="Multiple">Несколько правильных ответов</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Points" class="form-label">Баллы</label>
+                                <input asp-for="Points" class="form-control" type="number" min="1" />
+                            </div>
+                        </div>
+
+                        <hr />
+                        <label class="form-label fw-bold mb-3">Варианты ответов</label>
+
+                        <div id="answersContainer">
+                            @for (int i = 0; i < Model.Answers.Count; i++)
+                            {
+                                <div class="input-group mb-2 answer-row">
+                                    <div class="input-group-text bg-white">
+                                        <input type="checkbox" class="form-check-input mt-0" name="Answers[@i].IsCorrect" value="true" @(Model.Answers[i].IsCorrect ? "checked" : "")>
+                                        <input type="hidden" name="Answers[@i].IsCorrect" value="false" />
+                                    </div>
+                                    <input type="text" name="Answers[@i].Text" class="form-control" value="@Model.Answers[i].Text" required />
+                                    <button type="button" class="btn btn-outline-danger remove-answer">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addAnswerBtn">
+                            <i class="bi bi-plus-lg"></i> Добавить вариант
+                        </button>
+
+                        <div class="d-flex justify-content-between">
+                            <a asp-action="ManageQuestions" asp-route-testId="@Model.TestId" class="btn btn-secondary">Отмена</a>
+                            <button type="submit" class="btn btn-primary px-4">Сохранить изменения</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.getElementById('answersContainer');
+            const addBtn = document.getElementById('addAnswerBtn');
+
+            addBtn.addEventListener('click', function () {
+                const count = container.querySelectorAll('.answer-row').length;
+                const div = document.createElement('div');
+                div.className = 'input-group mb-2 answer-row';
+                div.innerHTML = `
+                    <div class="input-group-text bg-white">
+                        <input class="form-check-input mt-0" type="checkbox" name="Answers[${count}].IsCorrect" value="true">
+                        <input type="hidden" name="Answers[${count}].IsCorrect" value="false" />
+                    </div>
+                    <input type="text" name="Answers[${count}].Text" class="form-control" placeholder="Новый вариант" required />
+                    <button type="button" class="btn btn-outline-danger remove-answer">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+                updateRemoveButtons();
+            });
+
+            container.addEventListener('click', function (e) {
+                if (e.target.closest('.remove-answer')) {
+                    const row = e.target.closest('.answer-row');
+                    row.remove();
+                    reindexAnswers();
+                    updateRemoveButtons();
+                }
+            });
+
+            function updateRemoveButtons() {
+                const rows = container.querySelectorAll('.answer-row');
+                rows.forEach(row => {
+                    const btn = row.querySelector('.remove-answer');
+                    btn.disabled = rows.length <= 2;
+                });
+            }
+
+            function reindexAnswers() {
+                const rows = container.querySelectorAll('.answer-row');
+                rows.forEach((row, index) => {
+                    row.querySelector('input[type="text"]').name = `Answers[${index}].Text`;
+                    row.querySelector('input[type="checkbox"]').name = `Answers[${index}].IsCorrect`;
+                    row.querySelectorAll('input[type="hidden"]').forEach(h => {
+                         if(h.name.includes("IsCorrect")) h.name = `Answers[${index}].IsCorrect`;
+                    });
+                });
+            }
+            
+            updateRemoveButtons();
+        });
+    </script>
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

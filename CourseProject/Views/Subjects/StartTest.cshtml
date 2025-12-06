@@ -1,0 +1,84 @@
+﻿@model CourseProject.DataBase.DbModels.Test
+@{ ViewData["Title"] = "Начало теста"; }
+
+<div class="container mt-5 text-center" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>@Model.Title</h3>
+        </div>
+        <div class="card-body">
+            <p class="lead">Вам предстоит пройти тестирование по предмету <strong>@Model.Subject.Title</strong>.</p>
+            
+            <ul class="list-group list-group-flush text-start mb-4">
+                <li class="list-group-item">
+                    <i class="bi bi-clock me-2"></i> Лимит времени: 
+                    <strong>@(Model.TimeLimitMinutes.HasValue ? Model.TimeLimitMinutes + " мин." : "Неограниченно")</strong>
+                </li>
+                <li class="list-group-item">
+                    <i class="bi bi-arrow-repeat me-2"></i> Попыток использовано: 
+                    <strong>@ViewBag.AttemptsUsed / @(Model.MaxAttempts?.ToString() ?? "∞")</strong>
+                </li>
+            </ul>
+
+            @if ((bool)ViewBag.CanTake)
+            {
+                if ((bool)ViewBag.HasActiveAttempt)
+                {
+                    <div class="alert alert-warning">
+                        У вас есть незавершенная попытка. Вы можете продолжить её.
+                    </div>
+                    <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-warning btn-lg w-100">
+                        Продолжить тест
+                    </a>
+                }
+                else
+                {
+                    <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-success btn-lg w-100">
+                        Начать тестирование
+                    </a>
+                }
+            }
+            else
+            {
+                <div class="alert alert-danger">
+                    Вы исчерпали все попытки прохождения этого теста.
+                </div>
+                <a asp-action="Details" asp-route-id="@Model.SubjectId" class="btn btn-secondary">
+                    Вернуться к курсу
+                </a>
+            }
+
+            @if (ViewBag.PastAttempts != null && ((List<CourseProject.DataBase.DbModels.TestAttempt>)ViewBag.PastAttempts).Any())
+            {
+                <hr class="my-4" />
+                <h5 class="text-start text-muted mb-3"><i class="bi bi-clock-history"></i> Ваши прошлые результаты</h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center">Дата</th>
+                                <th class="text-center">Баллы</th>
+                                <th class="text-center">Детали</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var attempt in (List<CourseProject.DataBase.DbModels.TestAttempt>)ViewBag.PastAttempts)
+                            {
+                                <tr>
+                                    <td>@attempt.EndTime?.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td class="fw-bold text-primary">@attempt.Score</td>
+                                    <td>
+                                        <a asp-action="TestResult" asp-route-attemptId="@attempt.Id" class="btn btn-sm btn-outline-info py-0" title="Посмотреть результат">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            </div>
+    </div>
+</div>

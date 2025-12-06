@@ -1,83 +1,95 @@
-﻿@using CourseProject.DataBase.Enums
-@model IEnumerable<CourseProject.DataBase.DbModels.Subject>
+﻿@model IEnumerable<CourseProject.DataBase.DbModels.Subject>
 
 @{
-    ViewData["Title"] = User.IsInRole("Admin") ? "Все курсы" : "Мои курсы";
+    ViewData["Title"] = User.IsInRole("Admin") ? "Все предметы" : "Мои курсы";
+    bool isAdmin = ViewBag.IsAdmin ?? false;
 }
 
 <div class="container py-4">
-    <div class="mb-5">
-        <h2 class="fw-bold mb-1">@ViewData["Title"]</h2>
-        <p class="text-muted">
-            @if (User.IsInRole("Admin")) { <text>Полный список предметов в системе.</text> }
-            else if (User.IsInRole("Teacher")) { <text>Предметы, которые вы ведете.</text> }
-            else { <text>Предметы, доступные для обучения.</text> }
-        </p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                @if (User.IsInRole("Student"))
+                {
+                    <i class="bi bi-mortarboard-fill text-primary"></i> <span>Моё обучение</span>
+                }
+                else if (User.IsInRole("Teacher"))
+                {
+                    <i class="bi bi-briefcase-fill text-success"></i> <span>Мои предметы</span>
+                }
+                else
+                {
+                    <i class="bi bi-grid-fill text-secondary"></i> <span>Все предметы (Админ)</span>
+                }
+            </h1>
+            <p class="text-muted">Выберите предмет, чтобы перейти к материалам.</p>
+        </div>
+
+        @if (isAdmin)
+        {
+            <a asp-controller="Admin" asp-action="CreateSubject" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Новый предмет
+            </a>
+        }
     </div>
 
     @if (!Model.Any())
     {
         <div class="text-center py-5">
-            <i class="bi bi-journal-x display-1 text-muted"></i>
-            <p class="mt-3 lead text-muted">Предметы не найдены.</p>
+            <div class="display-1 text-muted opacity-25"><i class="bi bi-inbox"></i></div>
+            <h4 class="mt-3 text-muted">Курсов пока нет</h4>
+            <p>Как только вас добавят в группу или назначат преподавателем, курсы появятся здесь.</p>
         </div>
     }
     else
     {
-        <div class="row g-4">
-            @foreach (var subject in Model)
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var item in Model)
             {
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0 bg-light">
-                        <div class="card-body d-flex flex-column p-4">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div class="icon-box bg-white text-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                    <i class="bi bi-mortarboard fs-4"></i>
-                                </div>
-                                
-                                @if(!User.IsInRole("Student"))
-                                {
-                                    @if(subject.Status == ContentStatus.Published) 
-                                    { <span class="badge bg-success rounded-pill">Опубликован</span> }
-                                    else if(subject.Status == ContentStatus.Hidden) 
-                                    { <span class="badge bg-secondary rounded-pill">Скрыт</span> }
-                                    else 
-                                    { <span class="badge bg-warning text-dark rounded-pill">Черновик</span> }
-                                }
-                            </div>
-
-                            <h5 class="card-title fw-bold">@subject.Title</h5>
-                            <p class="card-text text-muted small flex-grow-1">
-                                @(string.IsNullOrEmpty(subject.Description) 
-                                    ? "Описание отсутствует" 
-                                    : (subject.Description.Length > 80 ? subject.Description.Substring(0, 80) + "..." : subject.Description))
-                            </p>
+                <div class="col">
+                    <div class="card h-100 shadow-sm hover-shadow transition-effect">
+                        <div class="card-header bg-primary text-white border-0" style="height: 10px; padding: 0;"></div>
+                        
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fw-bold text-dark">
+                                <a asp-action="Details" asp-route-id="@item.Id" class="text-decoration-none text-dark stretched-link">
+                                    @item.Title
+                                </a>
+                            </h5>
                             
-                            <hr class="text-muted my-3">
+                            <p class="card-text text-muted small flex-grow-1">
+                                @if (!string.IsNullOrEmpty(item.Description))
+                                {
+                                    @if (item.Description.Length > 100)
+                                    {
+                                        @item.Description.Substring(0, 100)<span>...</span>
+                                    }
+                                    else
+                                    {
+                                        @item.Description
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="fst-italic">Нет описания</span>
+                                }
+                            </p>
 
-                            <div class="d-flex flex-column gap-2">
-                                @if (User.IsInRole("Student"))
-                                {
-                                    <a asp-controller="Subjects" asp-action="Details" asp-route-id="@subject.Id" class="btn btn-primary w-100 rounded-pill">
-                                        <i class="bi bi-book"></i> Перейти к обучению
-                                    </a>
-                                }
-                                
-                                @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
-                                {
-                                    <div class="d-flex gap-2">
-                                        <a asp-controller="Teacher" asp-action="ManageSubject" asp-route-id="@subject.Id" class="btn btn-outline-primary w-100 rounded-pill" title="Дашборд курса">
-                                            <i class="bi bi-speedometer2"></i> Управление
-                                        </a>
-                                        
-                                        @if (User.IsInRole("Admin"))
-                                        {
-                                            <a asp-controller="Admin" asp-action="EditSubject" asp-route-id="@subject.Id" class="btn btn-outline-secondary rounded-pill" title="Настройки предмета">
-                                                <i class="bi bi-gear"></i>
-                                            </a>
-                                        }
-                                    </div>
-                                }
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                                <div class="small text-muted">
+                                    <i class="bi bi-file-earmark-text"></i> Лекций: @(item.Lectures?.Count ?? 0)
+                                </div>
+                                <div class="small text-muted">
+                                    <i class="bi bi-check-circle"></i> Тестов: @(item.Tests?.Count ?? 0)
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer bg-white border-top-0 pb-3">
+                            <div class="d-grid">
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-primary">
+                                    Открыть курс
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -86,3 +98,13 @@
         </div>
     }
 </div>
+
+<style>
+    .hover-shadow:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    .transition-effect {
+        transition: all 0.3s ease;
+    }
+</style>

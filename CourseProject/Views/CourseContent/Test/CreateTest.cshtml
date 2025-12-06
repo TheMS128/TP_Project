@@ -1,0 +1,78 @@
+﻿@model CourseProject.Models.CourseContentViewModels.Test.TestViewModel
+@{
+    ViewData["Title"] = "Создание теста";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-ui-checks"></i> Создать новый тест</h4>
+                </div>
+                <div class="card-body">
+                    <form asp-action="CreateTest" method="post">
+                        <input type="hidden" asp-for="SubjectId" />
+
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label fw-bold">Название теста</label>
+                            <input asp-for="Title" class="form-control form-control-lg" placeholder="Например: Итоговое тестирование" />
+                            <span asp-validation-for="Title" class="text-danger"></span>
+                        </div>
+
+                        <h5 class="mt-4 mb-3 text-muted border-bottom pb-2">Настройки ограничений</h5>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="TimeLimitMinutes" class="form-label">Лимит времени (мин)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-stopwatch"></i></span>
+                                    <input asp-for="TimeLimitMinutes" class="form-control" placeholder="Неогр." min="1" />
+                                </div>
+                                <span asp-validation-for="TimeLimitMinutes" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="MaxAttempts" class="form-label">Попытки</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-arrow-repeat"></i></span>
+                                    <input asp-for="MaxAttempts" class="form-control" placeholder="Неогр." min="1" />
+                                </div>
+                                <span asp-validation-for="MaxAttempts" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label asp-for="DaysToComplete" class="form-label">Дней на сдачу</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                    <input asp-for="DaysToComplete" class="form-control" placeholder="Неогр." min="1" />
+                                </div>
+                                <span asp-validation-for="DaysToComplete" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 mt-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" asp-for="IsPublished" id="publishTestSwitch" />
+                                <label class="form-check-label" for="publishTestSwitch">Опубликовать (доступен студентам)</label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a asp-action="ManageTests" asp-route-subjectId="@Model.SubjectId" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Отмена
+                            </a>
+                            <button type="submit" class="btn btn-success px-4">
+                                <i class="bi bi-check-lg"></i> Создать тест
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
