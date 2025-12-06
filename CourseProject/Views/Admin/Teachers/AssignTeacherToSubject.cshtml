@@ -1,0 +1,85 @@
+﻿@model CourseProject.Models.AdminViewModels.Teacher.AssignTeacherViewModel
+
+@{
+    ViewData["Title"] = "Управление преподавателями курса";
+}
+
+<div class="container mt-4">
+    <h3 class="mb-4">Управление курсом: <span class="text-primary">@Model.SubjectTitle</span></h3>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card border-success shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-plus-fill"></i> Назначить преподавателя</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.AvailableTeachers.Any())
+                    {
+                        <p class="text-muted">Выберите преподавателя из списка доступных:</p>
+                        <form asp-action="AssignTeacherToSubject" method="post">
+                            <input type="hidden" asp-for="SubjectId" />
+
+                            <div class="mb-3">
+                                <select asp-for="SelectedTeacherId" class="form-select" required>
+                                    <option value="" disabled selected>-- Выберите для добавления --</option>
+                                    @foreach (var teacher in Model.AvailableTeachers)
+                                    {
+                                        <option value="@teacher.Id">@teacher.FullName (@teacher.Email)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Добавить на курс</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            Нет доступных преподавателей для назначения. Либо все уже назначены, либо база пуста.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card border-danger shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-dash-fill"></i> Снять преподавателя</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.AssignedTeachers.Any())
+                    {
+                        <p class="text-muted">Выберите преподавателя для снятия с курса:</p>
+                        <form asp-action="UnassignTeacherFromSubject" method="post" onsubmit="return confirm('Вы уверены, что хотите снять этого преподавателя с курса?');">
+                            <input type="hidden" asp-for="SubjectId" />
+
+                            <div class="mb-3">
+                                <select asp-for="SelectedTeacherToRemoveId" class="form-select" required>
+                                    <option value="" disabled selected>-- Выберите для удаления --</option>
+                                    @foreach (var teacher in Model.AssignedTeachers)
+                                    {
+                                        <option value="@teacher.Id">@teacher.FullName (@teacher.Email)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-danger w-100">Снять с курса</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-secondary mb-0">
+                            На этот курс еще никто не назначен.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a asp-action="ManageSubjects" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Вернуться к списку предметов
+        </a>
+    </div>
+</div>

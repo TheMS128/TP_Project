@@ -7,7 +7,7 @@ public class Lecture
     public string FilePath { get; set; }
     public DateTime DateAdded { get; set; }
     public bool IsPublished { get; set; }
-
     public int SubjectId { get; set; }
+    
     public virtual Subject Subject { get; set; }
 }

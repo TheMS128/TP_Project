@@ -3,30 +3,39 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace CourseProject.DataBase
+namespace CourseProject.DataBase;
+
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+    : IdentityDbContext<User, IdentityRole, string>(options)
 {
-    public class ApplicationDbContext : IdentityDbContext<User, IdentityRole, string>
+    public DbSet<Group> Groups { get; set; }
+    public DbSet<Subject> Subjects { get; set; }
+    public DbSet<Lecture> Lectures { get; set; }
+    public DbSet<Test> Tests { get; set; }
+    public DbSet<Question> Questions { get; set; }
+    public DbSet<AnswerOption> AnswerOptions { get; set; }
+    public DbSet<StudentAnswer> StudentAnswers { get; set; }
+    public DbSet<TestAttempt> TestAttempts { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        public DbSet<Group> Groups { get; set; }
-        public DbSet<Subject> Subjects { get; set; }
-        public DbSet<Lecture> Lectures { get; set; }
-        public DbSet<Test> Tests { get; set; }
-        public DbSet<Question> Questions { get; set; }
-        public DbSet<AnswerOption> AnswerOptions { get; set; }
-        public DbSet<StudentAnswer> StudentAnswers { get; set; }
-        public DbSet<TestAttempt> TestAttempts { get; set; }
+        base.OnModelCreating(modelBuilder);
 
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.AssignedSubjects)
+            .WithMany(s => s.Teachers)
+            .UsingEntity(j => j.ToTable("SubjectsUsers"));
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<TestAttempt>()
+            .HasOne(t => t.Student)
+            .WithMany(s => s.TestAttempts)
+            .HasForeignKey(t => t.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<TestAttempt>()
-                .HasOne(t => t.Student) 
-                .WithMany(s => s.TestAttempts) 
-                .HasForeignKey(t => t.StudentId) 
-                .OnDelete(DeleteBehavior.Cascade);
-        }
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.Group)
+            .WithMany(g => g.Students)
+            .HasForeignKey(u => u.GroupId)
+            .OnDelete(DeleteBehavior.SetNull); 
     }
 }

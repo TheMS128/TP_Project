@@ -1,0 +1,108 @@
+﻿@model CourseProject.Models.AdminViewModels.Subject.ManageSubjectsViewModel
+@{ ViewData["Title"] = "Предметы"; }
+
+<h2>Управление предметами</h2>
+
+<div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+    <a asp-action="CreateSubject" class="btn btn-success">
+        <i class="bi bi-plus-lg"></i> Добавить предмет
+    </a>
+   
+    <form asp-action="ManageSubjects" method="get" class="d-flex">
+        <input type="text" name="searchString" value="@ViewData["SearchString"]" class="form-control me-2" placeholder="Поиск предмета..." style="width: 250px;" />
+        <button type="submit" class="btn btn-outline-primary">Поиск</button>
+        <a asp-action="ManageSubjects" class="btn btn-outline-secondary ms-1">Сброс</a>
+    </form>
+</div>
+
+<table class="table table-hover align-middle table-bordered">
+    <thead class="table-light">
+        <tr>
+            <th class="text-start">Название</th>
+            <th class="text-center">Описание</th>
+            <th class="text-center">Преподаватели</th>
+            <th class="text-end" style="width: 250px;">Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var subject in Model.Subjects)
+        {
+            <tr>
+                <td class="text-start">@subject.Title</td>
+                <td class="text-center">@subject.Description</td>
+               
+                <td class="text-center">
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 140px;">
+                            Назначено: @subject.Teachers.Count
+                        </button>
+                       
+                        <div class="dropdown-menu p-3 shadow text-start" style="width: 320px;" onclick="event.stopPropagation()">
+                            <form asp-action="UpdateSubjectTeachers" method="post">
+                                <input type="hidden" name="subjectId" value="@subject.Id" />
+                                <h6 class="dropdown-header px-0">Выберите преподавателей:</h6>
+                                <input type="text" class="form-control form-control-sm mb-2 teacher-search-input" placeholder="Поиск преподавателя..." onkeyup="filterTeachers(this)">
+                               
+                                <div class="teacher-list-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
+                                    @foreach (var teacher in Model.AllTeachers)
+                                    {
+                                        bool isAssigned = subject.Teachers.Any(t => t.Id == teacher.Id);
+                                        <div class="form-check teacher-item">
+                                            <input class="form-check-input teacher-checkbox" type="checkbox" name="selectedTeacherIds" value="@teacher.Id" id="chk_@subject.Id@teacher.Id" @(isAssigned ? "checked" : "")>
+                                            <label class="form-check-label" for="chk_@subject.Id@teacher.Id">@teacher.FullName</label>
+                                        </div>
+                                    }
+                                    <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
+                                </div>
+                               
+                                <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="selectAll_@subject.Id" onchange="toggleVisibleTeachers(this)">
+                                        <label class="form-check-label small text-muted" for="selectAll_@subject.Id">Все (видимые)</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="text-end">
+                    <a asp-action="EditSubject" asp-route-id="@subject.Id" class="btn btn-sm btn-warning" style="min-width: 90px;">Изменить</a>
+                    <form asp-action="DeleteSubject" asp-route-id="@subject.Id" method="post" class="d-inline" onsubmit="return confirm('Удалить предмет?');">
+                        <button type="submit" class="btn btn-sm btn-danger" style="min-width: 90px;">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    function filterTeachers(inputElement) {
+        const searchTerms = inputElement.value.toLowerCase().split(" ").filter(t => t.length > 0);
+        const container = inputElement.closest('form').querySelector('.teacher-list-container');
+        const items = container.querySelectorAll('.teacher-item');
+        let hasVisibleItems = false;
+        items.forEach(item => {
+            const label = item.querySelector('label').innerText.toLowerCase();
+            const isMatch = searchTerms.every(term => label.includes(term));
+            if (isMatch) { item.style.display = ""; hasVisibleItems = true; } else { item.style.display = "none"; }
+        });
+        const noResultsMsg = container.querySelector('.no-results');
+        if (noResultsMsg) { noResultsMsg.style.display = hasVisibleItems ? "none" : "block"; }
+        const selectAllCb = inputElement.closest('form').querySelector('input[id^="selectAll_"]');
+        if(selectAllCb) selectAllCb.checked = false;
+    }
+    function toggleVisibleTeachers(selectAllCheckbox) {
+        const form = selectAllCheckbox.closest('form');
+        const container = form.querySelector('.teacher-list-container');
+        const items = container.querySelectorAll('.teacher-item');
+        items.forEach(item => {
+            if (item.style.display !== "none") {
+                const checkbox = item.querySelector('.teacher-checkbox');
+                if (checkbox) { checkbox.checked = selectAllCheckbox.checked; }
+            }
+        });
+    }
+</script>

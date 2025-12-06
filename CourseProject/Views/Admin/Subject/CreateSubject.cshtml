@@ -1,0 +1,83 @@
+﻿@model CourseProject.Models.AdminViewModels.Subject.CreateSubjectViewModel
+@{ ViewData["Title"] = "Создать предмет"; }
+
+<h2>Создать новый предмет</h2>
+<hr />
+<div class="row">
+    <div class="col-md-5">
+        <form asp-action="CreateSubject" method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label">Название предмета</label>
+                <input asp-for="Title" class="form-control" required />
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Описание</label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Назначить преподавателей:</label>
+
+                @if (!Model.AvailableTeachers.Any())
+                {
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-circle"></i> В системе нет преподавателей.
+                    <br/><a asp-action="CreateTeacher" class="alert-link">Создать?</a>
+                </div>
+                }
+                else
+                {
+                <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск преподавателя..." onkeyup="filterList(this)">
+
+                <div class="border rounded p-2 teacher-list-container" style="max-height: 200px; overflow-y: auto;">
+                    @foreach (var teacher in Model.AvailableTeachers)
+                    {
+                    <div class="form-check teacher-item">
+                        <input class="form-check-input" type="checkbox"
+                               name="SelectedTeacherIds"
+                               value="@teacher.Id"
+                               id="chk_@teacher.Id">
+                        <label class="form-check-label small" for="chk_@teacher.Id">
+                            @teacher.FullName
+                        </label>
+                    </div>
+                    }
+                    <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
+                </div>
+                }
+            </div>
+
+            <button type="submit" class="btn btn-success">Создать</button>
+            <a asp-action="ManageSubjects" class="btn btn-secondary">Назад</a>
+        </form>
+    </div>
+</div>
+
+<script>
+    function filterList(input) {
+        const filter = input.value.toLowerCase();
+        const container = document.querySelector('.teacher-list-container');
+        if (!container) return;
+
+        const items = container.querySelectorAll('.teacher-item');
+        let hasVisible = false;
+
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (text.includes(filter)) {
+                item.style.display = "";
+                hasVisible = true;
+            } else {
+                item.style.display = "none";
+            }
+        });
+
+        const noRes = container.querySelector('.no-results');
+        if(noRes) noRes.style.display = hasVisible ? "none" : "block";
+    }
+</script>

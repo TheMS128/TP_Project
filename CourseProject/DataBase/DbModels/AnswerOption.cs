@@ -6,7 +6,7 @@ public class AnswerOption
     public string Text { get; set; }
     public bool IsCorrect { get; set; }
     public int OrderIndex { get; set; }
-
     public int QuestionId { get; set; }
+    
     public virtual Question Question { get; set; }
 }
