@@ -3,26 +3,18 @@
 @{
     ViewData["Title"] = User.IsInRole("Admin") ? "Все предметы" : "Мои курсы";
     bool isAdmin = ViewBag.IsAdmin ?? false;
+    bool isStudent = User.IsInRole("Student");
+    bool isTeacher = User.IsInRole("Teacher");
 }
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="fw-bold">
-                @if (User.IsInRole("Student"))
-                {
-                    <i class="bi bi-mortarboard-fill text-primary"></i> <span>Моё обучение</span>
-                }
-                else if (User.IsInRole("Teacher"))
-                {
-                    <i class="bi bi-briefcase-fill text-success"></i> <span>Мои предметы</span>
-                }
-                else
-                {
-                    <i class="bi bi-grid-fill text-secondary"></i> <span>Все предметы (Админ)</span>
-                }
+                @if (isStudent) { <i class="bi bi-mortarboard-fill text-primary"></i> <span>Моё обучение</span> }
+                else if (isTeacher) { <i class="bi bi-briefcase-fill text-success"></i> <span>Мои предметы</span> }
+                else { <i class="bi bi-grid-fill text-secondary"></i> <span>Все предметы</span> }
             </h1>
-            <p class="text-muted">Выберите предмет, чтобы перейти к материалам.</p>
         </div>
 
         @if (isAdmin)
@@ -35,10 +27,9 @@
 
     @if (!Model.Any())
     {
-        <div class="text-center py-5">
-            <div class="display-1 text-muted opacity-25"><i class="bi bi-inbox"></i></div>
-            <h4 class="mt-3 text-muted">Курсов пока нет</h4>
-            <p>Как только вас добавят в группу или назначат преподавателем, курсы появятся здесь.</p>
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox display-1 opacity-25"></i>
+            <p class="mt-3">Список пуст.</p>
         </div>
     }
     else
@@ -48,48 +39,49 @@
             {
                 <div class="col">
                     <div class="card h-100 shadow-sm hover-shadow transition-effect">
-                        <div class="card-header bg-primary text-white border-0" style="height: 10px; padding: 0;"></div>
-                        
-                        <div class="card-body d-flex flex-column">
-                            <h5 class="card-title fw-bold text-dark">
-                                <a asp-action="Details" asp-route-id="@item.Id" class="text-decoration-none text-dark stretched-link">
+                        <div class="card-header bg-white border-0 pt-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h5 class="card-title fw-bold text-dark mb-0 text-truncate" style="max-width: 85%;">
                                     @item.Title
-                                </a>
-                            </h5>
-                            
-                            <p class="card-text text-muted small flex-grow-1">
-                                @if (!string.IsNullOrEmpty(item.Description))
+                                </h5>
+                                @if (!isStudent)
                                 {
-                                    @if (item.Description.Length > 100)
-                                    {
-                                        @item.Description.Substring(0, 100)<span>...</span>
-                                    }
-                                    else
-                                    {
-                                        @item.Description
-                                    }
+                                    @if(item.Status == CourseProject.DataBase.Enums.ContentStatus.Published) 
+                                    { <i class="bi bi-circle-fill text-success small" title="Опубликован"></i> }
+                                    else 
+                                    { <i class="bi bi-circle-fill text-warning small" title="Черновик"></i> }
                                 }
-                                else
-                                {
-                                    <span class="fst-italic">Нет описания</span>
-                                }
+                            </div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <p class="card-text text-muted small clamp-text">
+                                @(item.Description ?? "Нет описания")
                             </p>
-
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                                <div class="small text-muted">
-                                    <i class="bi bi-file-earmark-text"></i> Лекций: @(item.Lectures?.Count ?? 0)
-                                </div>
-                                <div class="small text-muted">
-                                    <i class="bi bi-check-circle"></i> Тестов: @(item.Tests?.Count ?? 0)
-                                </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top small text-muted">
+                                <span><i class="bi bi-file-earmark-text"></i> @(item.Lectures?.Count ?? 0)</span>
+                                <span><i class="bi bi-check-circle"></i> @(item.Tests?.Count ?? 0)</span>
+                                @if(!isStudent) {
+                                    <span><i class="bi bi-people"></i> @(item.EnrolledGroups?.Count ?? 0)</span>
+                                }
                             </div>
                         </div>
                         
                         <div class="card-footer bg-white border-top-0 pb-3">
                             <div class="d-grid">
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-primary">
-                                    Открыть курс
-                                </a>
+                                @if (isStudent)
+                                {
+                                    <a asp-controller="Subjects" asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-primary">
+                                        Открыть курс
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="CourseContent" asp-action="Index" asp-route-subjectId="@item.Id" class="btn btn-primary">
+                                        <i class="bi bi-gear-fill"></i> Управление
+                                    </a>
+                                }
                             </div>
                         </div>
                     </div>
@@ -100,11 +92,7 @@
 </div>
 
 <style>
-    .hover-shadow:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
-    }
-    .transition-effect {
-        transition: all 0.3s ease;
-    }
+    .hover-shadow:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+    .transition-effect { transition: all 0.3s ease; }
+    .clamp-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

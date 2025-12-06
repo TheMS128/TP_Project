@@ -1,6 +1,7 @@
 ﻿using CourseProject.DataBase;
 using CourseProject.DataBase.DbModels;
 using CourseProject.DataBase.Enums;
+using CourseProject.Models.SubjectModels;
 using CourseProject.Models.CourseContentViewModels.Test;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -9,18 +10,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CourseProject.Controllers;
 
-[Authorize] 
+[Authorize]
 public class SubjectsController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
-    private readonly IWebHostEnvironment _appEnvironment; 
+    private readonly IWebHostEnvironment _appEnvironment;
 
-    public SubjectsController(ApplicationDbContext context, UserManager<User> userManager, IWebHostEnvironment appEnvironment)
+    public SubjectsController(ApplicationDbContext context, UserManager<User> userManager,
+        IWebHostEnvironment appEnvironment)
     {
         _context = context;
         _userManager = userManager;
         _appEnvironment = appEnvironment;
+    }
+
+    private async Task<bool> CanManageSubject(int subjectId)
+    {
+        if (User.IsInRole("Admin")) return true;
+        if (User.IsInRole("Teacher"))
+        {
+            var userId = _userManager.GetUserId(User);
+            return await _context.Subjects
+                .AnyAsync(s => s.Id == subjectId && s.Teachers.Any(t => t.Id == userId));
+        }
+
+        return false;
     }
 
     public async Task<IActionResult> Index()
@@ -42,12 +57,12 @@ public class SubjectsController : Controller
                 .Include(s => s.Lectures)
                 .OrderBy(s => s.Title)
                 .ToListAsync();
-        }   
+        }
         else if (User.IsInRole("Student"))
         {
             subjects = await _context.Subjects
                 .Where(s => s.EnrolledGroups.Any(g => g.Students.Any(u => u.Id == userId)))
-                .Where(s => s.Status == ContentStatus.Published) 
+                .Where(s => s.Status == ContentStatus.Published)
                 .Include(s => s.Lectures)
                 .OrderBy(s => s.Title)
                 .ToListAsync();
@@ -62,6 +77,7 @@ public class SubjectsController : Controller
         var subject = await _context.Subjects
             .Include(s => s.Lectures)
             .Include(s => s.Tests)
+            .Include(s => s.EnrolledGroups)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (subject == null) return NotFound();
@@ -73,18 +89,79 @@ public class SubjectsController : Controller
                 .Where(g => g.Students.Any(u => u.Id == userId))
                 .AnyAsync(g => g.Subjects.Any(s => s.Id == id));
 
-            if (!hasAccess) return Forbid(); 
-        
+            if (!hasAccess) return Forbid();
+
             subject.Lectures = subject.Lectures?.Where(l => l.Status == ContentStatus.Published).ToList();
             subject.Tests = subject.Tests?.Where(t => t.Status == ContentStatus.Published).ToList();
         }
-    
+
         ViewBag.IsStudent = User.IsInRole("Student");
-        ViewBag.CanEdit = User.IsInRole("Admin") || User.IsInRole("Teacher");
+        ViewBag.CanEdit = await CanManageSubject(id);
 
         return View(subject);
     }
-    
+
+    [HttpGet]
+    public async Task<IActionResult> ConfigureGroups(int id)
+    {
+        if (!await CanManageSubject(id)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (subject == null) return NotFound();
+
+        var model = new ConfigureGroupsModel
+        {
+            SubjectId = subject.Id,
+            SubjectTitle = subject.Title,
+            AllGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(),
+            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateGroups(ConfigureGroupsModel model)
+    {
+        if (!await CanManageSubject(model.SubjectId)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == model.SubjectId);
+
+        if (subject != null)
+        {
+            subject.EnrolledGroups.Clear();
+            if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
+            {
+                var groups = await _context.Groups
+                    .Where(g => model.SelectedGroupIds.Contains(g.Id))
+                    .ToListAsync();
+                subject.EnrolledGroups.AddRange(groups);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction("Index", "CourseContent", new { subjectId = model.SubjectId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ChangeStatus(int id, ContentStatus status)
+    {
+        if (!await CanManageSubject(id)) return Forbid();
+        var subject = await _context.Subjects.FindAsync(id);
+        if (subject == null) return NotFound();
+
+        subject.Status = status;
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction("Index", "CourseContent", new { subjectId = id });
+    }
+
     [HttpGet]
     public async Task<IActionResult> DownloadLecture(int id)
     {
@@ -95,12 +172,7 @@ public class SubjectsController : Controller
         bool hasAccess = false;
 
         if (User.IsInRole("Admin")) hasAccess = true;
-        else if (User.IsInRole("Teacher"))
-        {
-            hasAccess = await _context.Subjects
-                .Where(s => s.Id == lecture.SubjectId)
-                .AnyAsync(s => s.Teachers.Any(t => t.Id == userId));
-        }
+        else if (User.IsInRole("Teacher")) hasAccess = await CanManageSubject(lecture.SubjectId);
         else if (User.IsInRole("Student"))
         {
             if (!lecture.IsPublished) return Forbid();
@@ -112,10 +184,10 @@ public class SubjectsController : Controller
         if (!hasAccess) return Forbid();
 
         string absPath = Path.Combine(_appEnvironment.WebRootPath, lecture.FilePath.TrimStart('/'));
-        if(lecture.FilePath.StartsWith("/")) absPath = _appEnvironment.WebRootPath + lecture.FilePath;
+        if (lecture.FilePath.StartsWith("/")) absPath = _appEnvironment.WebRootPath + lecture.FilePath;
         else absPath = Path.Combine(_appEnvironment.WebRootPath, lecture.FilePath);
 
-        if (!System.IO.File.Exists(absPath)) return NotFound("Файл не найден.");
+        if (!System.IO.File.Exists(absPath)) return NotFound("Файл не найден на сервере.");
 
         byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(absPath);
         string fileName = lecture.OriginalFileName ?? "Lecture" + Path.GetExtension(lecture.FilePath);
@@ -134,6 +206,12 @@ public class SubjectsController : Controller
 
         if (test == null || test.Status != ContentStatus.Published) return NotFound();
 
+        bool hasAccess = await _context.Groups
+            .Where(g => g.Students.Any(u => u.Id == userId))
+            .AnyAsync(g => g.Subjects.Any(s => s.Id == test.SubjectId));
+
+        if (!hasAccess) return Forbid();
+
         int attemptsUsed = await _context.TestAttempts
             .CountAsync(ta => ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
 
@@ -148,7 +226,6 @@ public class SubjectsController : Controller
         ViewBag.AttemptsUsed = attemptsUsed;
         ViewBag.CanTake = test.MaxAttempts == null || attemptsUsed < test.MaxAttempts;
         ViewBag.HasActiveAttempt = activeAttempt != null;
-    
         ViewBag.PastAttempts = pastAttempts;
 
         return View(test);
@@ -159,7 +236,7 @@ public class SubjectsController : Controller
     public async Task<IActionResult> TakeTest(int testId)
     {
         var userId = _userManager.GetUserId(User);
-        
+
         var attempt = await _context.TestAttempts
             .FirstOrDefaultAsync(ta => ta.TestId == testId && ta.StudentId == userId && !ta.IsCompleted);
 
@@ -167,9 +244,10 @@ public class SubjectsController : Controller
         {
             var test = await _context.Tests.FindAsync(testId);
             if (test == null) return NotFound();
-            
-            int used = await _context.TestAttempts.CountAsync(ta => ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
-            if (test.MaxAttempts != null && used >= test.MaxAttempts) 
+
+            int used = await _context.TestAttempts.CountAsync(ta =>
+                ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
+            if (test.MaxAttempts != null && used >= test.MaxAttempts)
                 return RedirectToAction(nameof(StartTest), new { testId });
 
             attempt = new TestAttempt
@@ -197,7 +275,7 @@ public class SubjectsController : Controller
                 {
                     Id = o.Id,
                     Text = o.Text
-                }).OrderBy(x => Guid.NewGuid()).ToList() 
+                }).OrderBy(x => Guid.NewGuid()).ToList()
             })
             .ToListAsync();
 
@@ -227,7 +305,7 @@ public class SubjectsController : Controller
             .Include(ta => ta.Test)
             .FirstOrDefaultAsync(ta => ta.Id == model.TestAttemptId && ta.StudentId == userId);
 
-        if (attempt == null || attempt.IsCompleted) 
+        if (attempt == null || attempt.IsCompleted)
             return RedirectToAction(nameof(Index));
 
         attempt.EndTime = DateTime.Now;
@@ -238,7 +316,7 @@ public class SubjectsController : Controller
             var limit = TimeSpan.FromMinutes(attempt.Test.TimeLimitMinutes.Value);
             if ((attempt.EndTime.Value - attempt.StartTime) > limit.Add(TimeSpan.FromMinutes(1)))
             {
-                attempt.Score = 0; 
+                attempt.Score = 0;
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(TestResult), new { attemptId = attempt.Id });
             }
@@ -274,7 +352,7 @@ public class SubjectsController : Controller
                 if (userIds.Count == 1 && correctIds.Contains(userIds.First()))
                     isCorrect = true;
             }
-            else 
+            else
             {
                 if (!correctIds.Except(userIds).Any() && !userIds.Except(correctIds).Any())
                     isCorrect = true;

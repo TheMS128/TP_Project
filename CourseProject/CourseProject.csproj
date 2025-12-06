@@ -40,6 +40,10 @@
       <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\ManageSubjects.cshtml" />
       <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\Test\CreateTest.cshtml" />
       <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\Test\EditTest.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Teacher\ConfigureGroups.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Teacher\CreateLecture.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Teacher\Index.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Teacher\ManageSubject.cshtml" />
     </ItemGroup>
 
 </Project>

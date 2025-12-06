@@ -7,6 +7,7 @@ using CourseProject.DataBase.DbModels;
 using CourseProject.DataBase.Enums;
 using CourseProject.Models.CourseContentViewModels.Lecture;
 using CourseProject.Models.CourseContentViewModels.Test;
+using CourseProject.Models.SubjectModels;
 
 namespace CourseProject.Controllers;
 
@@ -39,11 +40,29 @@ public class CourseContentController : Controller
     {
         if (!await HasAccessToSubject(subjectId)) return Forbid();
 
-        var subject = await _context.Subjects.FindAsync(subjectId);
+        var subject = await _context.Subjects
+            .Include(s => s.Lectures)
+            .Include(s => s.Tests)
+            .Include(s => s.EnrolledGroups) 
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+
         if (subject == null) return NotFound();
 
+        var allGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
+
+        var model = new CourseContentModel
+        {
+            Id = subject.Id,
+            Title = subject.Title,
+            Status = subject.Status,
+            LecturesCount = subject.Lectures?.Count ?? 0,
+            TestsCount = subject.Tests?.Count ?? 0,
+            AllGroups = allGroups,
+            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
+        };
+
         ViewBag.IsAdmin = User.IsInRole("Admin");
-        return View(subject);
+        return View(model);
     }
 
     [HttpGet]
@@ -140,17 +159,16 @@ public class CourseContentController : Controller
         };
         return View("Lecture/EditLecture", model);
     }
-    
+
     [HttpPost]
     public async Task<IActionResult> ChangeLectureStatus(int id, bool isPublished)
     {
         var lecture = await _context.Lectures.FindAsync(id);
         if (lecture == null) return NotFound();
-        
         if (!await HasAccessToSubject(lecture.SubjectId)) return Forbid();
 
         lecture.IsPublished = isPublished;
-        lecture.Status = isPublished ? ContentStatus.Published : ContentStatus.Draft; 
+        lecture.Status = isPublished ? ContentStatus.Published : ContentStatus.Draft;
 
         await _context.SaveChangesAsync();
 
@@ -466,6 +484,55 @@ public class CourseContentController : Controller
         }
 
         return NotFound();
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> ConfigureGroups(int subjectId)
+    {
+        if (!await HasAccessToSubject(subjectId)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+
+        if (subject == null) return NotFound();
+
+        var model = new ConfigureGroupsModel
+        {
+            SubjectId = subject.Id,
+            SubjectTitle = subject.Title,
+            AllGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(),
+            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateGroups(ConfigureGroupsModel model)
+    {
+        if (!await HasAccessToSubject(model.SubjectId)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == model.SubjectId);
+
+        if (subject == null) return NotFound();
+
+        subject.EnrolledGroups.Clear();
+
+        if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
+        {
+            var groupsToAdd = await _context.Groups
+                .Where(g => model.SelectedGroupIds.Contains(g.Id))
+                .ToListAsync();
+
+            subject.EnrolledGroups.AddRange(groupsToAdd);
+        }
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index), new { subjectId = model.SubjectId });
     }
 
     private void ValidateQuestion(QuestionViewModel model)
