@@ -140,17 +140,16 @@ public class CourseContentController : Controller
         };
         return View("Lecture/EditLecture", model);
     }
-    
+
     [HttpPost]
     public async Task<IActionResult> ChangeLectureStatus(int id, bool isPublished)
     {
         var lecture = await _context.Lectures.FindAsync(id);
         if (lecture == null) return NotFound();
-        
         if (!await HasAccessToSubject(lecture.SubjectId)) return Forbid();
 
         lecture.IsPublished = isPublished;
-        lecture.Status = isPublished ? ContentStatus.Published : ContentStatus.Draft; 
+        lecture.Status = isPublished ? ContentStatus.Published : ContentStatus.Draft;
 
         await _context.SaveChangesAsync();
 
