@@ -1,0 +1,82 @@
+﻿@model CourseProject.Models.SubjectModels.ConfigureGroupsModel
+@{
+    ViewData["Title"] = "Доступ к курсу";
+}
+
+<div class="container mt-4" style="max-width: 700px;">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-people-fill me-2"></i> Настройка доступа</h5>
+            <small>@Model.SubjectTitle</small>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-light border mb-3">
+                <i class="bi bi-info-circle text-primary"></i> 
+                Отметьте группы, студенты которых должны иметь доступ к материалам этого курса.
+            </div>
+            
+            <form asp-action="UpdateGroups" method="post">
+                <input type="hidden" asp-for="SubjectId" />
+
+                <input type="text" class="form-control mb-3" placeholder="Быстрый поиск группы..." onkeyup="filterGroups(this)">
+
+                <div class="list-group mb-4" id="groupsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6;">
+                    @if (Model.AllGroups.Any())
+                    {
+                        foreach (var group in Model.AllGroups)
+                        {
+                            bool isChecked = Model.SelectedGroupIds.Contains(group.Id);
+                            <label class="list-group-item list-group-item-action d-flex gap-3 align-items-center group-item" style="cursor: pointer;">
+                                <input class="form-check-input flex-shrink-0" 
+                                       type="checkbox" 
+                                       name="SelectedGroupIds" 
+                                       value="@group.Id" 
+                                       @(isChecked ? "checked" : "")
+                                       style="transform: scale(1.2);">
+                                <span class="form-checked-content user-select-none group-name">
+                                    @group.GroupName
+                                </span>
+                            </label>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center p-4 text-muted">Нет доступных групп в системе.</div>
+                    }
+                    <div class="text-center p-3 text-muted no-results" style="display: none;">Ничего не найдено</div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a asp-action="Index" asp-route-subjectId="@Model.SubjectId" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-check-lg"></i> Сохранить изменения
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function filterGroups(input) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById('groupsList');
+        const items = list.querySelectorAll('.group-item');
+        let hasVisible = false;
+
+        items.forEach(item => {
+            const text = item.querySelector('.group-name').innerText.toLowerCase();
+            if (text.includes(filter)) {
+                item.style.display = ""; 
+                hasVisible = true;
+            } else {
+                item.style.display = "none"; 
+            }
+        });
+
+        const noRes = list.querySelector('.no-results');
+        if (noRes) noRes.style.display = hasVisible ? "none" : "block";
+    }
+</script>
