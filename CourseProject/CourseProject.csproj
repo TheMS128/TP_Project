@@ -35,6 +35,11 @@
     <ItemGroup>
       <_ContentIncludedByDefault Remove="Views\UserManagement\Create.cshtml" />
       <_ContentIncludedByDefault Remove="Views\UserManagement\Index.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\CreateSubject.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\EditSubject.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\ManageSubjects.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\Test\CreateTest.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Admin\CourseContent\Test\EditTest.cshtml" />
     </ItemGroup>
 
 </Project>

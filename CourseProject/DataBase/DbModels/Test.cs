@@ -1,4 +1,6 @@
-﻿namespace CourseProject.DataBase.DbModels;
+﻿using CourseProject.DataBase.Enums;
+
+namespace CourseProject.DataBase.DbModels;
 
 public class Test
 {
@@ -8,7 +10,8 @@ public class Test
     public int? TimeLimitMinutes { get; set; }
     public int? MaxAttempts { get; set; }
     public bool IsPublished { get; set; }
-
+    public ContentStatus Status { get; set; } = ContentStatus.Draft;
+    
     public virtual List<Question> Questions { get; set; }
     public int SubjectId { get; set; }
     public virtual Subject Subject { get; set; }

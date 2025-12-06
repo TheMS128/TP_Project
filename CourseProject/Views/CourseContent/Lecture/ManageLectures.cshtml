@@ -1,0 +1,144 @@
+﻿@using CourseProject.DataBase.DbModels
+@model CourseProject.DataBase.DbModels.Subject
+@{
+    ViewData["Title"] = "Управление лекциями";
+}
+
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="Index" asp-route-subjectId="@Model.Id" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+        <h2 class="fw-bold mt-2">Лекции: <span class="text-primary">@Model.Title</span></h2>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a asp-action="CreateLecture" asp-route-subjectId="@Model.Id" class="btn btn-success">
+            <i class="bi bi-plus-lg"></i> Добавить лекцию
+        </a>
+
+        <div class="d-flex">
+            <input type="text" id="lectureSearchInput" class="form-control me-2" placeholder="Поиск лекции..." style="width: 250px;" onkeyup="filterLectures()" />
+        </div>
+    </div>
+
+    <div class="table-responsive" style="min-height: 300px;">
+        <table class="table table-hover align-middle table-bordered" id="lecturesTable">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start">Название</th>
+                    <th class="text-center" style="width: 140px;">Файл</th>
+                    <th class="text-center" style="width: 160px;">Статус</th>
+                    <th class="text-center" style="width: 160px;">Дата</th>
+                    <th class="text-end" style="width: 150px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Lectures != null && Model.Lectures.Any())
+                {
+                    foreach (var lecture in Model.Lectures.OrderByDescending(l => l.DateAdded))
+                    {
+                        <tr class="lecture-row">
+                            <td class="text-start">
+                                <span class="fw-bold">@lecture.Title</span>
+                            </td>
+
+                            <td class="text-center">
+                                <a asp-action="DownloadLecture" asp-route-id="@lecture.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download me-1"></i>Скачать
+                                </a>
+                            </td>
+
+                            <td class="text-center">
+                                <div class="dropdown">
+                                    @{
+                                        var btnClass = lecture.IsPublished ? "btn-success" : "btn-secondary";
+                                        var statusText = lecture.IsPublished ? "Опубликовано" : "Скрыто";
+                                        var iconClass = lecture.IsPublished ? "bi-check-circle" : "bi-eye-slash";
+                                    }
+
+                                    <button class="btn btn-sm dropdown-toggle @btnClass" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 140px;">
+                                        <i class="bi @iconClass me-1"></i>@statusText
+                                    </button>
+
+                                    <ul class="dropdown-menu shadow">
+                                        <li>
+                                            <form asp-action="ChangeLectureStatus" method="post">
+                                                <input type="hidden" name="id" value="@lecture.Id" />
+                                                <input type="hidden" name="isPublished" value="false" />
+                                                <button type="submit" class="dropdown-item @(!lecture.IsPublished ? "active" : "")">
+                                                    <i class="bi bi-eye-slash me-2"></i>Скрыть
+                                                </button>
+                                            </form>
+                                        </li>
+                                        <li>
+                                            <form asp-action="ChangeLectureStatus" method="post">
+                                                <input type="hidden" name="id" value="@lecture.Id" />
+                                                <input type="hidden" name="isPublished" value="true" />
+                                                <button type="submit" class="dropdown-item @(lecture.IsPublished ? "active" : "")">
+                                                    <i class="bi bi-check-circle me-2"></i>Опубликовать
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+
+                            <td class="text-center text-muted small">
+                                @lecture.DateAdded.ToString("dd.MM.yyyy")
+                            </td>
+
+                            <td class="text-end">
+                                <a asp-action="EditLecture" asp-route-id="@lecture.Id" class="btn btn-sm btn-warning me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form asp-action="DeleteLecture" asp-route-id="@lecture.Id" method="post" class="d-inline" onsubmit="return confirm('Удалить?');">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <p>Материалов пока нет.</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        
+        <div id="noLecturesFound" class="text-center py-3 text-muted" style="display: none;">
+            Ничего не найдено.
+        </div>
+    </div>
+</div>
+
+<script>
+    function filterLectures() {
+        const input = document.getElementById("lectureSearchInput");
+        const filter = input.value.toLowerCase();
+        const rows = document.querySelectorAll(".lecture-row");
+        let hasVisible = false;
+
+        rows.forEach(row => {
+            const titleText = row.cells[0].innerText.toLowerCase();
+            
+            if (titleText.includes(filter)) {
+                row.style.display = "";
+                hasVisible = true;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        const noDataMsg = document.getElementById("noLecturesFound");
+        if (noDataMsg) {
+            noDataMsg.style.display = hasVisible ? "none" : "block";
+        }
+    }
+</script>

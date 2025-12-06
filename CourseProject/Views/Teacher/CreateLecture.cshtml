@@ -1,0 +1,38 @@
+﻿@using CourseProject.DataBase.Enums
+@model CourseProject.Models.TeacherViewModels.CreateLectureViewModel
+@{ ViewData["Title"] = "Создание лекции"; }
+
+<div class="container mt-4">
+    <h2>Добавление новой лекции</h2>
+    <hr />
+    <div class="row">
+        <div class="col-md-6">
+            <form asp-action="CreateLecture" method="post" enctype="multipart/form-data">
+                <input type="hidden" asp-for="SubjectId" />
+                
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-bold"></label>
+                    <input asp-for="Title" class="form-control" placeholder="Введите тему лекции..." />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="UploadedFile" class="form-label fw-bold"></label>
+                    <input asp-for="UploadedFile" class="form-control" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" />
+                    <div class="form-text">Поддерживаются форматы: PDF, Word, PowerPoint.</div>
+                    <span asp-validation-for="UploadedFile" class="text-danger"></span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" name="actionType" value="Draft" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Сохранить как черновик
+                    </button>
+                    <button type="submit" name="actionType" value="Publish" class="btn btn-success">
+                        <i class="bi bi-rocket-takeoff"></i> Опубликовать
+                    </button>
+                    <a asp-action="ManageSubject" asp-route-id="@Model.SubjectId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -67,12 +67,7 @@ namespace CourseProject.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("SubjectId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("SubjectId");
 
                     b.ToTable("Groups");
                 });
@@ -86,7 +81,7 @@ namespace CourseProject.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("DateAdded")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
@@ -94,6 +89,12 @@ namespace CourseProject.Migrations
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
@@ -146,13 +147,13 @@ namespace CourseProject.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<float>("PointsScored")
+                        .HasColumnType("real");
+
                     b.Property<int>("QuestionId")
                         .HasColumnType("integer");
 
-                    b.Property<float>("ScorePoints")
-                        .HasColumnType("real");
-
-                    b.Property<int?>("TestAttemptId")
+                    b.Property<int>("TestAttemptId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -175,6 +176,9 @@ namespace CourseProject.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -202,6 +206,9 @@ namespace CourseProject.Migrations
                     b.Property<int?>("MaxAttempts")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
 
@@ -227,22 +234,30 @@ namespace CourseProject.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("EndTime")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
 
                     b.Property<float>("Score")
                         .HasColumnType("real");
 
                     b.Property<DateTime>("StartTime")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("StudentId")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("TestId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("TestId");
 
                     b.ToTable("TestAttempts");
                 });
@@ -322,6 +337,21 @@ namespace CourseProject.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("GroupSubject", b =>
+                {
+                    b.Property<int>("EnrolledGroupsId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectsId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EnrolledGroupsId", "SubjectsId");
+
+                    b.HasIndex("SubjectsId");
+
+                    b.ToTable("SubjectsGroups", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -480,17 +510,10 @@ namespace CourseProject.Migrations
                         .IsRequired();
 
                     b.HasOne("CourseProject.DataBase.DbModels.StudentAnswer", null)
-                        .WithMany("AnswerOptions")
+                        .WithMany("SelectedOptions")
                         .HasForeignKey("StudentAnswerId");
 
                     b.Navigation("Question");
-                });
-
-            modelBuilder.Entity("CourseProject.DataBase.DbModels.Group", b =>
-                {
-                    b.HasOne("CourseProject.DataBase.DbModels.Subject", null)
-                        .WithMany("EnrolledGroups")
-                        .HasForeignKey("SubjectId");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Lecture", b =>
@@ -523,11 +546,15 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CourseProject.DataBase.DbModels.TestAttempt", null)
+                    b.HasOne("CourseProject.DataBase.DbModels.TestAttempt", "TestAttempt")
                         .WithMany("StudentAnswers")
-                        .HasForeignKey("TestAttemptId");
+                        .HasForeignKey("TestAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Question");
+
+                    b.Navigation("TestAttempt");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Test", b =>
@@ -549,7 +576,15 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CourseProject.DataBase.DbModels.Test", "Test")
+                        .WithMany()
+                        .HasForeignKey("TestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Student");
+
+                    b.Navigation("Test");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.User", b =>
@@ -560,6 +595,21 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("GroupSubject", b =>
+                {
+                    b.HasOne("CourseProject.DataBase.DbModels.Group", null)
+                        .WithMany()
+                        .HasForeignKey("EnrolledGroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CourseProject.DataBase.DbModels.Subject", null)
+                        .WithMany()
+                        .HasForeignKey("SubjectsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -640,13 +690,11 @@ namespace CourseProject.Migrations
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.StudentAnswer", b =>
                 {
-                    b.Navigation("AnswerOptions");
+                    b.Navigation("SelectedOptions");
                 });
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Subject", b =>
                 {
-                    b.Navigation("EnrolledGroups");
-
                     b.Navigation("Lectures");
 
                     b.Navigation("Tests");

@@ -2,15 +2,15 @@
 @{ ViewData["Title"] = "Создать предмет"; }
 
 <h2>Создать новый предмет</h2>
-<hr />
+<hr/>
 <div class="row">
     <div class="col-md-5">
         <form asp-action="CreateSubject" method="post">
             <div asp-validation-summary="All" class="text-danger"></div>
 
             <div class="mb-3">
-                <label asp-for="Title" class="form-label">Название предмета</label>
-                <input asp-for="Title" class="form-control" required />
+                <label asp-for="Title" class="form-label fw-bold">Название предмета</label>
+                <input asp-for="Title" class="form-control" placeholder="Например: Высшая математика" required/>
                 <span asp-validation-for="Title" class="text-danger"></span>
             </div>
 
@@ -21,54 +21,98 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Назначить преподавателей:</label>
+                <label class="form-label fw-bold">Преподаватели</label>
+                <div class="dropdown">
+                    <button
+                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false" id="teachersBtn">
+                        -- Выберите преподавателей --
+                    </button>
+                    <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
+                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                               onkeyup="filterList(this, '.teacher-list')">
 
-                @if (!Model.AvailableTeachers.Any())
-                {
-                <div class="alert alert-warning small">
-                    <i class="bi bi-exclamation-circle"></i> В системе нет преподавателей.
-                    <br/><a asp-action="CreateTeacher" class="alert-link">Создать?</a>
-                </div>
-                }
-                else
-                {
-                <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск преподавателя..." onkeyup="filterList(this)">
-
-                <div class="border rounded p-2 teacher-list-container" style="max-height: 200px; overflow-y: auto;">
-                    @foreach (var teacher in Model.AvailableTeachers)
-                    {
-                    <div class="form-check teacher-item">
-                        <input class="form-check-input" type="checkbox"
-                               name="SelectedTeacherIds"
-                               value="@teacher.Id"
-                               id="chk_@teacher.Id">
-                        <label class="form-check-label small" for="chk_@teacher.Id">
-                            @teacher.FullName
-                        </label>
+                        <div class="teacher-list" style="max-height: 200px; overflow-y: auto;">
+                            @foreach (var teacher in Model.AvailableTeachers)
+                            {
+                                <div class="form-check list-item">
+                                    <input class="form-check-input item-checkbox" type="checkbox"
+                                           name="SelectedTeacherIds" value="@teacher.Id" id="t_@teacher.Id"
+                                           onchange="updateLabel('teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
+                                    <label class="form-check-label small" for="t_@teacher.Id">@teacher.FullName</label>
+                                </div>
+                            }
+                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
+                            </div>
+                        </div>
+                        <div class="border-top pt-2 mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAllTeachers"
+                                       onchange="toggleAllVisible(this, '.teacher-list', 'teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
+                                <label class="form-check-label small text-muted" for="selectAllTeachers">Выбрать
+                                    все</label>
+                            </div>
+                        </div>
                     </div>
-                    }
-                    <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
                 </div>
-                }
             </div>
 
-            <button type="submit" class="btn btn-success">Создать</button>
-            <a asp-action="ManageSubjects" class="btn btn-secondary">Назад</a>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Группы</label>
+                <div class="dropdown">
+                    <button
+                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false" id="groupsBtn">
+                        -- Выберите группы --
+                    </button>
+                    <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
+                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                               onkeyup="filterList(this, '.group-list')">
+
+                        <div class="group-list" style="max-height: 200px; overflow-y: auto;">
+                            @foreach (var group in Model.AvailableGroups)
+                            {
+                                <div class="form-check list-item">
+                                    <input class="form-check-input item-checkbox" type="checkbox"
+                                           name="SelectedGroupIds" value="@group.Id" id="g_@group.Id"
+                                           onchange="updateLabel('groupsBtn', 'SelectedGroupIds', 'групп')">
+                                    <label class="form-check-label small" for="g_@group.Id">@group.GroupName</label>
+                                </div>
+                            }
+                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
+                            </div>
+                        </div>
+                        <div class="border-top pt-2 mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAllGroups"
+                                       onchange="toggleAllVisible(this, '.group-list', 'groupsBtn', 'SelectedGroupIds', 'групп')">
+                                <label class="form-check-label small text-muted" for="selectAllGroups">Выбрать
+                                    все</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-text small">
+                    <i class="bi bi-info-circle"></i> Если выбраны и преподаватели, и группы — предмет будет <b>Опубликован</b>.
+                    Иначе — <b>Скрыт</b>.
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success">Создать предмет</button>
+            <a asp-action="ManageSubjects" class="btn btn-secondary">Отмена</a>
         </form>
     </div>
 </div>
 
 <script>
-    function filterList(input) {
+    function filterList(input, containerSelector) {
         const filter = input.value.toLowerCase();
-        const container = document.querySelector('.teacher-list-container');
-        if (!container) return;
-
-        const items = container.querySelectorAll('.teacher-item');
+        const container = input.closest('.dropdown-menu').querySelector(containerSelector);
+        const items = container.querySelectorAll('.list-item');
         let hasVisible = false;
 
         items.forEach(item => {
-            const text = item.textContent.toLowerCase();
+            const text = item.querySelector('label').innerText.toLowerCase();
             if (text.includes(filter)) {
                 item.style.display = "";
                 hasVisible = true;
@@ -78,6 +122,36 @@
         });
 
         const noRes = container.querySelector('.no-results');
-        if(noRes) noRes.style.display = hasVisible ? "none" : "block";
+        if (noRes) noRes.style.display = hasVisible ? "none" : "block";
+
+        const selectAll = input.closest('.dropdown-menu').querySelector('input[id^="selectAll"]');
+        if (selectAll) selectAll.checked = false;
+    }
+
+    function toggleAllVisible(sourceCheckbox, containerSelector, btnId, inputName, textSuffix) {
+        const container = sourceCheckbox.closest('.dropdown-menu').querySelector(containerSelector);
+        const items = container.querySelectorAll('.list-item');
+
+        items.forEach(item => {
+            if (item.style.display !== "none") {
+                const cb = item.querySelector('.item-checkbox');
+                cb.checked = sourceCheckbox.checked;
+            }
+        });
+        updateLabel(btnId, inputName, textSuffix);
+    }
+
+    function updateLabel(btnId, inputName, textSuffix) {
+        const checkboxes = document.querySelectorAll(`input[name="${inputName}"]:checked`);
+        const count = checkboxes.length;
+        const btn = document.getElementById(btnId);
+
+        if (count > 0) {
+            btn.innerText = `Выбрано: ${count} ${textSuffix}`;
+            btn.classList.add("text-primary", "fw-bold");
+        } else {
+            btn.innerText = `-- Выберите ${textSuffix} --`;
+            btn.classList.remove("text-primary", "fw-bold");
+        }
     }
 </script>

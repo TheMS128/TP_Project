@@ -37,5 +37,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(g => g.Students)
             .HasForeignKey(u => u.GroupId)
             .OnDelete(DeleteBehavior.SetNull); 
+        
+        modelBuilder.Entity<Subject>()
+            .HasMany(s => s.EnrolledGroups)
+            .WithMany(g => g.Subjects)
+            .UsingEntity(j => j.ToTable("SubjectsGroups"));
     }
 }
