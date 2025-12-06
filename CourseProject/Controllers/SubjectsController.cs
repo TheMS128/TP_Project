@@ -146,21 +146,20 @@ public class SubjectsController : Controller
             await _context.SaveChangesAsync();
         }
 
-        return RedirectToAction(nameof(Details), new { id = model.SubjectId });
+        return RedirectToAction("Index", "CourseContent", new { subjectId = model.SubjectId });
     }
 
     [HttpPost]
     public async Task<IActionResult> ChangeStatus(int id, ContentStatus status)
     {
         if (!await CanManageSubject(id)) return Forbid();
-
         var subject = await _context.Subjects.FindAsync(id);
         if (subject == null) return NotFound();
 
         subject.Status = status;
         await _context.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Details), new { id = id });
+        return RedirectToAction("Index", "CourseContent", new { subjectId = id });
     }
 
     [HttpGet]
