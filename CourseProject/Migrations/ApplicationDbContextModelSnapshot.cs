@@ -67,12 +67,7 @@ namespace CourseProject.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("SubjectId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("SubjectId");
 
                     b.ToTable("Groups");
                 });
@@ -94,6 +89,9 @@ namespace CourseProject.Migrations
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
@@ -176,6 +174,9 @@ namespace CourseProject.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -200,6 +201,9 @@ namespace CourseProject.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<int?>("MaxAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<int>("SubjectId")
@@ -322,6 +326,21 @@ namespace CourseProject.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("GroupSubject", b =>
+                {
+                    b.Property<int>("EnrolledGroupsId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectsId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EnrolledGroupsId", "SubjectsId");
+
+                    b.HasIndex("SubjectsId");
+
+                    b.ToTable("SubjectsGroups", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -486,13 +505,6 @@ namespace CourseProject.Migrations
                     b.Navigation("Question");
                 });
 
-            modelBuilder.Entity("CourseProject.DataBase.DbModels.Group", b =>
-                {
-                    b.HasOne("CourseProject.DataBase.DbModels.Subject", null)
-                        .WithMany("EnrolledGroups")
-                        .HasForeignKey("SubjectId");
-                });
-
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Lecture", b =>
                 {
                     b.HasOne("CourseProject.DataBase.DbModels.Subject", "Subject")
@@ -560,6 +572,21 @@ namespace CourseProject.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("GroupSubject", b =>
+                {
+                    b.HasOne("CourseProject.DataBase.DbModels.Group", null)
+                        .WithMany()
+                        .HasForeignKey("EnrolledGroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CourseProject.DataBase.DbModels.Subject", null)
+                        .WithMany()
+                        .HasForeignKey("SubjectsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -645,8 +672,6 @@ namespace CourseProject.Migrations
 
             modelBuilder.Entity("CourseProject.DataBase.DbModels.Subject", b =>
                 {
-                    b.Navigation("EnrolledGroups");
-
                     b.Navigation("Lectures");
 
                     b.Navigation("Tests");
