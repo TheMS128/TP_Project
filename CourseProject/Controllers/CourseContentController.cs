@@ -43,7 +43,7 @@ public class CourseContentController : Controller
         var subject = await _context.Subjects
             .Include(s => s.Lectures)
             .Include(s => s.Tests)
-            .Include(s => s.EnrolledGroups) 
+            .Include(s => s.EnrolledGroups)
             .FirstOrDefaultAsync(s => s.Id == subjectId);
 
         if (subject == null) return NotFound();
@@ -65,23 +65,10 @@ public class CourseContentController : Controller
         return View(model);
     }
 
-    [HttpGet]
-    public async Task<IActionResult> ManageLectures(int subjectId)
-    {
-        if (!await HasAccessToSubject(subjectId)) return Forbid();
+    // --- УПРАВЛЕНИЕ СТАТУСОМ ПРЕДМЕТА (Перенесено сюда) ---
 
-        var subject = await _context.Subjects
-            .Include(s => s.Lectures)
-            .FirstOrDefaultAsync(s => s.Id == subjectId);
-
-        if (subject == null) return NotFound();
-
-        ViewBag.IsAdmin = User.IsInRole("Admin");
-        return View("Lecture/ManageLectures", subject);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> ManageTests(int subjectId)
+    [HttpPost]
+    public async Task<IActionResult> ChangeSubjectStatus(int subjectId, ContentStatus status)
     {
         if (!await HasAccessToSubject(subjectId)) return Forbid();
 
@@ -92,15 +79,93 @@ public class CourseContentController : Controller
 
         if (subject == null) return NotFound();
 
+        if (status != ContentStatus.Draft)
+        {
+            // Проверка: хотя бы 1 вопрос в любом из тестов
+            bool hasQuestions = subject.Tests != null &&
+                                subject.Tests.Any(t => t.Questions != null && t.Questions.Any());
+
+            if (!hasQuestions)
+            {
+                TempData["ErrorMessage"] =
+                    "Нельзя опубликовать предмет: должен быть создан хотя бы один вопрос в тестах.";
+                return RedirectToAction(nameof(Index), new { subjectId = subjectId });
+            }
+        }
+
+        subject.Status = status;
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index), new { subjectId = subjectId });
+    }
+
+    // --- УПРАВЛЕНИЕ ГРУППАМИ ПРЕДМЕТА (Перенесено сюда) ---
+
+    [HttpGet]
+    public async Task<IActionResult> ConfigureGroups(int subjectId)
+    {
+        if (!await HasAccessToSubject(subjectId)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+
+        if (subject == null) return NotFound();
+
+        var model = new ConfigureGroupsModel
+        {
+            SubjectId = subject.Id,
+            SubjectTitle = subject.Title,
+            AllGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(),
+            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateGroups(ConfigureGroupsModel model)
+    {
+        if (!await HasAccessToSubject(model.SubjectId)) return Forbid();
+
+        var subject = await _context.Subjects
+            .Include(s => s.EnrolledGroups)
+            .FirstOrDefaultAsync(s => s.Id == model.SubjectId);
+
+        if (subject != null)
+        {
+            subject.EnrolledGroups.Clear();
+            if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
+            {
+                var groups = await _context.Groups
+                    .Where(g => model.SelectedGroupIds.Contains(g.Id))
+                    .ToListAsync();
+                subject.EnrolledGroups.AddRange(groups);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index), new { subjectId = model.SubjectId });
+    }
+
+    // --- ЛЕКЦИИ ---
+
+    [HttpGet]
+    public async Task<IActionResult> ManageLectures(int subjectId)
+    {
+        if (!await HasAccessToSubject(subjectId)) return Forbid();
+        var subject = await _context.Subjects.Include(s => s.Lectures).FirstOrDefaultAsync(s => s.Id == subjectId);
+        if (subject == null) return NotFound();
         ViewBag.IsAdmin = User.IsInRole("Admin");
-        return View("Test/ManageTests", subject);
+        return View("Lecture/ManageLectures", subject);
     }
 
     [HttpGet]
     public async Task<IActionResult> CreateLecture(int subjectId)
     {
         if (!await HasAccessToSubject(subjectId)) return Forbid();
-        return View("Lecture/CreateLecture", new LectureViewModel { SubjectId = subjectId, IsPublished = true });
+        return View("Lecture/CreateLecture", new LectureViewModel { SubjectId = subjectId });
     }
 
     [HttpPost]
@@ -127,10 +192,9 @@ public class CourseContentController : Controller
                 Title = model.Title,
                 SubjectId = model.SubjectId,
                 DateAdded = DateTime.Now,
-                IsPublished = model.IsPublished,
-                Status = model.IsPublished ? ContentStatus.Published : ContentStatus.Draft,
-
-                FilePath = path, OriginalFileName = model.UploadedFile.FileName
+                Status = ContentStatus.Hidden,
+                FilePath = path,
+                OriginalFileName = model.UploadedFile.FileName
             };
 
             _context.Lectures.Add(lecture);
@@ -153,43 +217,29 @@ public class CourseContentController : Controller
             Id = lecture.Id,
             SubjectId = lecture.SubjectId,
             Title = lecture.Title,
-            IsPublished = lecture.IsPublished,
             ExistingFilePath = lecture.FilePath,
-            OriginalFileName = lecture.OriginalFileName
+            OriginalFileName = lecture.OriginalFileName,
+            Status = lecture.Status 
         };
         return View("Lecture/EditLecture", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ChangeLectureStatus(int id, bool isPublished)
-    {
-        var lecture = await _context.Lectures.FindAsync(id);
-        if (lecture == null) return NotFound();
-        if (!await HasAccessToSubject(lecture.SubjectId)) return Forbid();
-
-        lecture.IsPublished = isPublished;
-        lecture.Status = isPublished ? ContentStatus.Published : ContentStatus.Draft;
-
-        await _context.SaveChangesAsync();
-
-        return RedirectToAction(nameof(ManageLectures), new { subjectId = lecture.SubjectId });
     }
 
     [HttpPost]
     public async Task<IActionResult> EditLecture(LectureViewModel model)
     {
         var lecture = await _context.Lectures.FindAsync(model.Id);
+        if (lecture == null) return NotFound();
+        if (!await HasAccessToSubject(lecture.SubjectId)) return Forbid();
+
+        ViewBag.CurrentStatus = lecture.Status;
 
         if (ModelState.IsValid)
         {
-            lecture.Title = model.Title;
-            lecture.IsPublished = model.IsPublished;
-
             if (model.UploadedFile != null)
             {
                 if (!string.IsNullOrEmpty(lecture.FilePath))
                 {
-                    var oldPath = _appEnvironment.WebRootPath + lecture.FilePath;
+                    var oldPath = Path.Combine(_appEnvironment.WebRootPath, lecture.FilePath.TrimStart('/'));
                     if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
                 }
 
@@ -207,11 +257,61 @@ public class CourseContentController : Controller
                 lecture.DateAdded = DateTime.Now;
             }
 
+            lecture.Title = model.Title;
+            bool hasFile = !string.IsNullOrEmpty(lecture.FilePath);
+
+            if (model.Status == ContentStatus.Published) 
+            {
+                if (!hasFile)
+                {
+                    ModelState.AddModelError("", "Нельзя опубликовать лекцию без загруженного файла.");
+
+                    model.ExistingFilePath = lecture.FilePath;
+                    model.OriginalFileName = lecture.OriginalFileName;
+                    return View("Lecture/EditLecture", model);
+                }
+
+                lecture.Status = ContentStatus.Published;
+            }
+            else 
+            {
+                lecture.Status = ContentStatus.Hidden;
+            }
+
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(ManageLectures), new { subjectId = lecture.SubjectId });
         }
 
         return View("Lecture/EditLecture", model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ChangeLectureStatus(int id, ContentStatus newStatus)
+    {
+        var lecture = await _context.Lectures.FindAsync(id);
+        if (lecture == null) return NotFound();
+        if (!await HasAccessToSubject(lecture.SubjectId)) return Forbid();
+
+        // 1. Проверка при попытке опубликовать
+        if (newStatus == ContentStatus.Published)
+        {
+            if (string.IsNullOrEmpty(lecture.FilePath))
+            {
+                TempData["ErrorMessage"] = "Нельзя опубликовать лекцию: файл не загружен.";
+                return RedirectToAction(nameof(ManageLectures), new { subjectId = lecture.SubjectId });
+            }
+        }
+    
+        if (newStatus != ContentStatus.Published && newStatus != ContentStatus.Hidden)
+        {
+            newStatus = ContentStatus.Hidden; 
+        }
+
+        lecture.Status = newStatus;
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(ManageLectures), new { subjectId = lecture.SubjectId });
     }
 
     [HttpPost]
@@ -240,11 +340,25 @@ public class CourseContentController : Controller
         return RedirectToAction("Index", "Admin");
     }
 
+    // --- ТЕСТЫ ---
+
+    [HttpGet]
+    public async Task<IActionResult> ManageTests(int subjectId)
+    {
+        if (!await HasAccessToSubject(subjectId)) return Forbid();
+        var subject = await _context.Subjects
+            .Include(s => s.Tests).ThenInclude(t => t.Questions)
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+        if (subject == null) return NotFound();
+        ViewBag.IsAdmin = User.IsInRole("Admin");
+        return View("Test/ManageTests", subject);
+    }
+
     [HttpGet]
     public async Task<IActionResult> CreateTest(int subjectId)
     {
         if (!await HasAccessToSubject(subjectId)) return Forbid();
-        return View("Test/CreateTest", new TestViewModel { SubjectId = subjectId, IsPublished = true });
+        return View("Test/CreateTest", new TestViewModel { SubjectId = subjectId, IsPublished = false });
     }
 
     [HttpPost]
@@ -261,8 +375,9 @@ public class CourseContentController : Controller
                 DaysToComplete = model.DaysToComplete,
                 TimeLimitMinutes = model.TimeLimitMinutes,
                 MaxAttempts = model.MaxAttempts,
-                IsPublished = model.IsPublished,
-                Status = model.IsPublished ? ContentStatus.Published : ContentStatus.Draft
+                // ПРИ СОЗДАНИИ ВСЕГДА ЧЕРНОВИК
+                IsPublished = false,
+                Status = ContentStatus.Draft
             };
             _context.Tests.Add(test);
             await _context.SaveChangesAsync();
@@ -305,8 +420,29 @@ public class CourseContentController : Controller
             test.DaysToComplete = model.DaysToComplete;
             test.TimeLimitMinutes = model.TimeLimitMinutes;
             test.MaxAttempts = model.MaxAttempts;
-            test.IsPublished = model.IsPublished;
-            test.Status = model.IsPublished ? ContentStatus.Published : ContentStatus.Draft;
+
+            if (model.IsPublished)
+            {
+                // Проверка: тест должен иметь вопросы
+                bool hasQuestions = await _context.Questions.AnyAsync(q => q.TestId == test.Id);
+
+                if (!hasQuestions)
+                {
+                    ModelState.AddModelError("",
+                        "Нельзя опубликовать тест без вопросов. Добавьте хотя бы один вопрос.");
+                    // Сбрасываем галочку во View
+                    model.IsPublished = false;
+                    return View("Test/EditTest", model);
+                }
+
+                test.IsPublished = true;
+                test.Status = ContentStatus.Published;
+            }
+            else
+            {
+                test.IsPublished = false;
+                test.Status = ContentStatus.Draft;
+            }
 
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(ManageTests), new { subjectId = test.SubjectId });
@@ -330,6 +466,8 @@ public class CourseContentController : Controller
 
         return RedirectToAction("Index", "Admin");
     }
+
+    // --- ВОПРОСЫ (Без изменений, кроме проверок доступа) ---
 
     [HttpGet]
     public async Task<IActionResult> ManageQuestions(int testId)
@@ -484,55 +622,6 @@ public class CourseContentController : Controller
         }
 
         return NotFound();
-    }
-    
-    [HttpGet]
-    public async Task<IActionResult> ConfigureGroups(int subjectId)
-    {
-        if (!await HasAccessToSubject(subjectId)) return Forbid();
-
-        var subject = await _context.Subjects
-            .Include(s => s.EnrolledGroups)
-            .FirstOrDefaultAsync(s => s.Id == subjectId);
-
-        if (subject == null) return NotFound();
-
-        var model = new ConfigureGroupsModel
-        {
-            SubjectId = subject.Id,
-            SubjectTitle = subject.Title,
-            AllGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(),
-            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
-        };
-
-        return View(model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> UpdateGroups(ConfigureGroupsModel model)
-    {
-        if (!await HasAccessToSubject(model.SubjectId)) return Forbid();
-
-        var subject = await _context.Subjects
-            .Include(s => s.EnrolledGroups)
-            .FirstOrDefaultAsync(s => s.Id == model.SubjectId);
-
-        if (subject == null) return NotFound();
-
-        subject.EnrolledGroups.Clear();
-
-        if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
-        {
-            var groupsToAdd = await _context.Groups
-                .Where(g => model.SelectedGroupIds.Contains(g.Id))
-                .ToListAsync();
-
-            subject.EnrolledGroups.AddRange(groupsToAdd);
-        }
-
-        await _context.SaveChangesAsync();
-
-        return RedirectToAction(nameof(Index), new { subjectId = model.SubjectId });
     }
 
     private void ValidateQuestion(QuestionViewModel model)

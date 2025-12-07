@@ -87,9 +87,6 @@ namespace CourseProject.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("OriginalFileName")
                         .HasColumnType("text");
 

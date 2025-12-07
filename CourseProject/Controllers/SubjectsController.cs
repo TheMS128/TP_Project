@@ -1,7 +1,6 @@
 ﻿using CourseProject.DataBase;
 using CourseProject.DataBase.DbModels;
 using CourseProject.DataBase.Enums;
-using CourseProject.Models.SubjectModels;
 using CourseProject.Models.CourseContentViewModels.Test;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -25,7 +24,8 @@ public class SubjectsController : Controller
         _appEnvironment = appEnvironment;
     }
 
-    private async Task<bool> CanManageSubject(int subjectId)
+    // Вспомогательный метод для проверки прав учителя на просмотр
+    private async Task<bool> IsTeacherOfSubject(int subjectId)
     {
         if (User.IsInRole("Admin")) return true;
         if (User.IsInRole("Teacher"))
@@ -34,7 +34,6 @@ public class SubjectsController : Controller
             return await _context.Subjects
                 .AnyAsync(s => s.Id == subjectId && s.Teachers.Any(t => t.Id == userId));
         }
-
         return false;
     }
 
@@ -91,75 +90,16 @@ public class SubjectsController : Controller
 
             if (!hasAccess) return Forbid();
 
+            // Студенты видят только опубликованный контент
             subject.Lectures = subject.Lectures?.Where(l => l.Status == ContentStatus.Published).ToList();
             subject.Tests = subject.Tests?.Where(t => t.Status == ContentStatus.Published).ToList();
         }
 
         ViewBag.IsStudent = User.IsInRole("Student");
-        ViewBag.CanEdit = await CanManageSubject(id);
+        // Флаг для View, чтобы показать кнопку "Управление", которая ведет на CourseContentController
+        ViewBag.CanEdit = await IsTeacherOfSubject(id);
 
         return View(subject);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> ConfigureGroups(int id)
-    {
-        if (!await CanManageSubject(id)) return Forbid();
-
-        var subject = await _context.Subjects
-            .Include(s => s.EnrolledGroups)
-            .FirstOrDefaultAsync(s => s.Id == id);
-
-        if (subject == null) return NotFound();
-
-        var model = new ConfigureGroupsModel
-        {
-            SubjectId = subject.Id,
-            SubjectTitle = subject.Title,
-            AllGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(),
-            SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
-        };
-
-        return View(model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> UpdateGroups(ConfigureGroupsModel model)
-    {
-        if (!await CanManageSubject(model.SubjectId)) return Forbid();
-
-        var subject = await _context.Subjects
-            .Include(s => s.EnrolledGroups)
-            .FirstOrDefaultAsync(s => s.Id == model.SubjectId);
-
-        if (subject != null)
-        {
-            subject.EnrolledGroups.Clear();
-            if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
-            {
-                var groups = await _context.Groups
-                    .Where(g => model.SelectedGroupIds.Contains(g.Id))
-                    .ToListAsync();
-                subject.EnrolledGroups.AddRange(groups);
-            }
-
-            await _context.SaveChangesAsync();
-        }
-
-        return RedirectToAction("Index", "CourseContent", new { subjectId = model.SubjectId });
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ChangeStatus(int id, ContentStatus status)
-    {
-        if (!await CanManageSubject(id)) return Forbid();
-        var subject = await _context.Subjects.FindAsync(id);
-        if (subject == null) return NotFound();
-
-        subject.Status = status;
-        await _context.SaveChangesAsync();
-
-        return RedirectToAction("Index", "CourseContent", new { subjectId = id });
     }
 
     [HttpGet]
@@ -172,10 +112,10 @@ public class SubjectsController : Controller
         bool hasAccess = false;
 
         if (User.IsInRole("Admin")) hasAccess = true;
-        else if (User.IsInRole("Teacher")) hasAccess = await CanManageSubject(lecture.SubjectId);
+        else if (User.IsInRole("Teacher")) hasAccess = await IsTeacherOfSubject(lecture.SubjectId);
         else if (User.IsInRole("Student"))
         {
-            if (!lecture.IsPublished) return Forbid();
+            if (lecture.Status != ContentStatus.Published) return Forbid();
             hasAccess = await _context.Groups
                 .Where(g => g.Students.Any(u => u.Id == userId))
                 .AnyAsync(g => g.Subjects.Any(s => s.Id == lecture.SubjectId));

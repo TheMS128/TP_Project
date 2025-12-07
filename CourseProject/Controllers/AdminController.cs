@@ -674,9 +674,25 @@ public class AdminController : Controller
     [HttpPost]
     public async Task<IActionResult> ChangeSubjectStatus(int subjectId, ContentStatus newStatus)
     {
-        var subject = await _context.Subjects.FindAsync(subjectId);
+        var subject = await _context.Subjects
+            .Include(s => s.Tests)
+            .ThenInclude(t => t.Questions)
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+
         if (subject != null)
         {
+            if (newStatus != ContentStatus.Draft)
+            {
+                bool hasQuestions = subject.Tests != null &&
+                                    subject.Tests.Any(t => t.Questions != null && t.Questions.Any());
+
+                if (!hasQuestions)
+                {
+                    TempData["ErrorMessage"] = "Нельзя опубликовать предмет без вопросов в тестах.";
+                    return RedirectToAction(nameof(ManageSubjects));
+                }
+            }
+
             subject.Status = newStatus;
             await _context.SaveChangesAsync();
         }
@@ -717,7 +733,8 @@ public class AdminController : Controller
             var subject = new Subject
             {
                 Title = model.Title,
-                Description = model.Description
+                Description = model.Description,
+                Status = ContentStatus.Draft
             };
 
             if (model.SelectedTeacherIds.Any())
@@ -730,16 +747,6 @@ public class AdminController : Controller
             {
                 var groups = await _context.Groups.Where(g => model.SelectedGroupIds.Contains(g.Id)).ToListAsync();
                 subject.EnrolledGroups = new List<Group>(groups);
-            }
-
-            if (subject.Teachers != null && subject.Teachers.Any() &&
-                subject.EnrolledGroups != null && subject.EnrolledGroups.Any())
-            {
-                subject.Status = ContentStatus.Published;
-            }
-            else
-            {
-                subject.Status = ContentStatus.Hidden;
             }
 
             _context.Subjects.Add(subject);

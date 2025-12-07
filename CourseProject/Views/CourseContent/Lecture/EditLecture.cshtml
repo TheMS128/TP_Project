@@ -1,4 +1,5 @@
 ﻿@model CourseProject.Models.CourseContentViewModels.Lecture.LectureViewModel
+@using CourseProject.DataBase.Enums 
 @{
     ViewData["Title"] = "Редактирование лекции";
 }
@@ -11,12 +12,12 @@
                     <h4 class="mb-0"><i class="bi bi-file-earmark-text"></i> Редактирование лекции</h4>
                 </div>
                 <div class="card-body">
-                    <form asp-action="EditLecture" method="post" enctype="multipart/form-data">
+                    <form asp-action="EditLecture" method="post" enctype="multipart/form-data" id="editLectureForm">
                         <input type="hidden" asp-for="Id"/>
                         <input type="hidden" asp-for="SubjectId"/>
                         <input type="hidden" asp-for="ExistingFilePath"/>
                         <input type="hidden" asp-for="OriginalFileName"/>
-
+                        
                         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                         <div class="mb-3">
@@ -26,7 +27,23 @@
                             <span asp-validation-for="Title" class="text-danger"></span>
                         </div>
 
-                        <h5 class="mt-4 mb-3 text-muted border-bottom pb-2">Материалы лекции</h5>
+                        <h5 class="mt-4 mb-3 text-muted border-bottom pb-2">Материалы и статус</h5>
+
+                        <div class="mb-4">
+                            <label asp-for="Status" class="form-label fw-bold">Статус лекции</label>
+                            <select asp-for="Status" class="form-select" id="lectureStatusSelect">
+                                <option value="@((int)ContentStatus.Hidden)">Скрыто</option>
+                                <option value="@((int)ContentStatus.Published)">Опубликовано</option>
+                            </select>
+                            <div class="form-text">
+                                Установите **Опубликовано**, чтобы сделать лекцию доступной для студентов.
+                            </div>
+                            <div id="fileMissingWarning" class="alert alert-warning mt-2" style="display:none;">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                **Внимание:** Вы не можете опубликовать лекцию без загруженного файла.
+                            </div>
+                            <span asp-validation-for="Status" class="text-danger"></span>
+                        </div>
 
                         <div class="mb-3">
                             <label class="form-label text-muted">Текущий файл</label>
@@ -36,7 +53,7 @@
                                     <div>
                                         @if (!string.IsNullOrEmpty(Model.ExistingFilePath))
                                         {
-                                            <span class="fw-bold text-dark">
+                                            <span class="fw-bold text-dark" id="currentFileName">
                                                 @(Model.OriginalFileName ?? System.IO.Path.GetFileName(Model.ExistingFilePath))
                                             </span>
                                             <br/>
@@ -44,7 +61,7 @@
                                         }
                                         else
                                         {
-                                            <span class="text-muted fst-italic">Файл еще не загружен</span>
+                                            <span class="text-muted fst-italic" id="currentFileName">Файл еще не загружен</span>
                                         }
                                     </div>
                                 </div>
@@ -61,21 +78,11 @@
 
                         <div class="mb-4">
                             <label asp-for="UploadedFile" class="form-label fw-bold">Заменить файл</label>
-                            <input asp-for="UploadedFile" class="form-control" type="file"/>
+                            <input asp-for="UploadedFile" class="form-control" type="file" id="uploadedFileInput"/>
                             <div class="form-text">Выберите новый файл только если хотите заменить текущий.</div>
                             <span asp-validation-for="UploadedFile" class="text-danger"></span>
                         </div>
-
-                        <div class="mb-4 mt-2">
-                            <div class="card bg-light border-0 p-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" asp-for="IsPublished"
-                                           id="publishLectureSwitch"/>
-                                    <label class="form-check-label fw-bold" for="publishLectureSwitch">Опубликовать
-                                        (доступно студентам)</label>
-                                </div>
-                            </div>
-                        </div>
+                        
 
                         <div class="d-flex justify-content-between align-items-center mt-4">
                             <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId"
@@ -97,8 +104,33 @@
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 
     <script>
-        document.querySelector('input[type="file"]').addEventListener('change', function (e) {
-            var fileName = e.target.files[0].name;
+        document.getElementById('editLectureForm').addEventListener('submit', function (e) {
+            const statusSelect = document.getElementById('lectureStatusSelect');
+            const uploadedFile = document.getElementById('uploadedFileInput');
+            const existingFilePath = document.querySelector('input[name="ExistingFilePath"]').value;
+            const fileMissingWarning = document.getElementById('fileMissingWarning');
+            
+            if (statusSelect.value === '@((int)ContentStatus.Published).toString()') {
+                
+                const hasNewFile = uploadedFile.files.length > 0;
+                const hasExistingFile = existingFilePath && existingFilePath.trim() !== '';
+
+                if (!hasNewFile && !hasExistingFile) {
+                    e.preventDefault(); 
+                    fileMissingWarning.style.display = 'block'; 
+                    
+                    statusSelect.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    fileMissingWarning.style.display = 'none'; 
+                }
+            } else {
+                 fileMissingWarning.style.display = 'none';
+            }
         });
+        
+        document.getElementById('lectureStatusSelect').addEventListener('change', function () {
+            document.getElementById('fileMissingWarning').style.display = 'none';
+        });
+        
     </script>
 }
