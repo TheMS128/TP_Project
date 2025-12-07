@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using CourseProject.DataBase.Enums;
 
 namespace CourseProject.Models.CourseContentViewModels.Test;
 
@@ -10,5 +11,5 @@ public class TestViewModel
     [Display(Name = "Дней на выполнение")] public int? DaysToComplete { get; set; }
     [Display(Name = "Лимит времени (минуты)")] public int? TimeLimitMinutes { get; set; }
     [Display(Name = "Максимум попыток")] public int? MaxAttempts { get; set; }
-    [Display(Name = "Опубликован")] public bool IsPublished { get; set; }
+    [Display(Name = "Статус")] public ContentStatus Status { get; set; } = ContentStatus.Hidden;
 }

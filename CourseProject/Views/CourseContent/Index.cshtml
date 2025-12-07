@@ -1,72 +1,67 @@
 ﻿@using CourseProject.DataBase.Enums
 @model CourseProject.Models.SubjectModels.CourseContentModel
 @{
-ViewData["Title"] = $"Управление: {Model.Title}";
-bool isAdmin = ViewBag.IsAdmin ?? false;
+    ViewData["Title"] = $"Управление: {Model.Title}";
+    bool isAdmin = ViewBag.IsAdmin ?? false;
 }
 
 <style>
-    .list-item {
-        padding: 6px 12px; 
-        border-bottom: 1px solid #f8f9fa;
-        transition: background-color 0.2s;
-    }
-    .list-item:hover {
-        background-color: #f1f3f5; 
-    }
-    .list-item:last-child {
-        border-bottom: none;
-    }
-
-    .item-checkbox {
-        transform: scale(1.15);
-        cursor: pointer;
-        margin-top: 0.25rem; 
-    }
-
-    .group-name {
-        cursor: pointer;
-        margin-left: 8px; 
-        display: inline-block;
-        width: 100%;
-        color: #333;
-    }
-
-    .bg-light-hover:hover {
-        background-color: #f8f9fa;
-        transform: translateY(-3px);
-        transition: all 0.2s;
-    }
+    .list-item { padding: 6px 12px; border-bottom: 1px solid #f8f9fa; transition: background-color 0.2s; }
+    .list-item:hover { background-color: #f1f3f5; }
+    .list-item:last-child { border-bottom: none; }
+    .item-checkbox { transform: scale(1.15); cursor: pointer; margin-top: 0.25rem; }
+    .group-name { cursor: pointer; margin-left: 8px; display: inline-block; width: 100%; color: #333; }
+    .bg-light-hover:hover { background-color: #f8f9fa; transform: translateY(-3px); transition: all 0.2s; }
 </style>
 
 <div class="container py-4">
+
+    @if (TempData["SubjectStatusError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> @Html.Raw(TempData["SubjectStatusError"])
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item">
-                        @if (isAdmin)
-                        {
-                        <a asp-controller="Admin" asp-action="ManageSubjects">Все предметы</a>
-                        }
-                        else
-                        {
-                        <a asp-controller="Subjects" asp-action="Index">Мои предметы</a>
-                        }
-                    </li>
-                    <li class="breadcrumb-item active">@Model.Title</li>
-                </ol>
-            </nav>
+            <div class="mb-2">
+                @if (isAdmin)
+                {
+                    <a asp-controller="Admin" asp-action="ManageSubjects" class="text-decoration-none text-muted">
+                        <i class="bi bi-arrow-left"></i> Назад к списку предметов
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="Subjects" asp-action="Index" class="text-decoration-none text-muted">
+                        <i class="bi bi-arrow-left"></i> Назад к моим курсам
+                    </a>
+                }
+            </div>
+
             <h2 class="fw-bold mb-0">
                 @Model.Title
-                @if (Model.Status == ContentStatus.Draft)
+                @if (Model.Status == ContentStatus.Hidden)
                 {
-                <span class="badge bg-warning text-dark fs-6 align-middle">Черновик</span>
+                    <span class="badge bg-secondary text-white fs-6 align-middle ms-2">Скрыт</span>
+                }
+                else if (Model.Status == ContentStatus.Published)
+                {
+                    <span class="badge bg-success text-white fs-6 align-middle ms-2">Опубликован</span>
                 }
             </h2>
         </div>
 
-        <a asp-controller="Subjects" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-dark" target="_blank">
+        <a asp-controller="Subjects" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-dark">
             <i class="bi bi-eye"></i> Предпросмотр
         </a>
     </div>
@@ -76,16 +71,12 @@ bool isAdmin = ViewBag.IsAdmin ?? false;
         <div class="col-md-4">
             <div class="card h-100 shadow-sm border-0 bg-light-hover">
                 <div class="card-body text-center p-4">
-                    <div class="icon-box bg-primary bg-opacity-10 text-primary mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center"
-                         style="width: 60px; height: 60px; font-size: 1.5rem;">
+                    <div class="icon-box bg-primary bg-opacity-10 text-primary mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem;">
                         <i class="bi bi-file-earmark-text"></i>
                     </div>
                     <h5 class="fw-bold">Материалы</h5>
                     <p class="text-muted small">Лекции: @(Model.LecturesCount)</p>
-                    <a asp-action="ManageLectures" asp-route-subjectId="@Model.Id"
-                       class="btn btn-primary w-100 stretched-link">
-                        Лекции
-                    </a>
+                    <a asp-action="ManageLectures" asp-route-subjectId="@Model.Id" class="btn btn-primary w-100 stretched-link">Лекции</a>
                 </div>
             </div>
         </div>
@@ -93,16 +84,12 @@ bool isAdmin = ViewBag.IsAdmin ?? false;
         <div class="col-md-4">
             <div class="card h-100 shadow-sm border-0 bg-light-hover">
                 <div class="card-body text-center p-4">
-                    <div class="icon-box bg-danger bg-opacity-10 text-danger mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center"
-                         style="width: 60px; height: 60px; font-size: 1.5rem;">
+                    <div class="icon-box bg-danger bg-opacity-10 text-danger mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem;">
                         <i class="bi bi-check2-square"></i>
                     </div>
                     <h5 class="fw-bold">Контроль знаний</h5>
                     <p class="text-muted small">Тесты: @(Model.TestsCount)</p>
-                    <a asp-action="ManageTests" asp-route-subjectId="@Model.Id"
-                       class="btn btn-danger w-100 stretched-link">
-                        Тесты
-                    </a>
+                    <a asp-action="ManageTests" asp-route-subjectId="@Model.Id" class="btn btn-danger w-100 stretched-link">Тесты</a>
                 </div>
             </div>
         </div>
@@ -110,106 +97,93 @@ bool isAdmin = ViewBag.IsAdmin ?? false;
         <div class="col-md-4">
             <div class="card h-100 shadow-sm border-0 bg-light-hover">
                 <div class="card-body text-center p-4">
-                    <div class="icon-box bg-success bg-opacity-10 text-success mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center"
-                         style="width: 60px; height: 60px; font-size: 1.5rem;">
+                    <div class="icon-box bg-success bg-opacity-10 text-success mb-3 mx-auto rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-size: 1.5rem;">
                         <i class="bi bi-sliders"></i>
                     </div>
                     <h5 class="fw-bold">Настройки курса</h5>
-                    <p class="text-muted small">Доступ групп, статус публикации.</p>
+                    <p class="text-muted small mb-3">Доступ групп, статус публикации.</p>
 
-                    <div class="d-grid gap-2 position-relative" style="z-index: 2;">
+                    <div class="d-flex gap-2 position-relative" style="z-index: 2;">
 
-                        <div class="dropdown w-100">
-                            <button class="btn btn-outline-success w-100 dropdown-toggle"
+                        <div class="dropdown w-50">
+                            <button class="btn btn-outline-success w-100 dropdown-toggle text-truncate"
                                     type="button"
                                     id="groupsDropdownBtn"
                                     data-bs-toggle="dropdown"
                                     data-bs-auto-close="outside"
-                                    aria-expanded="false">
+                                    aria-expanded="false"
+                                    title="@(Model.SelectedGroupIds.Any() ? $"Групп: {Model.SelectedGroupIds.Count}" : "Настроить доступ")">
                                 <i class="bi bi-people me-1"></i>
                                 @if (Model.SelectedGroupIds.Any())
                                 {
-                                <span>Групп: @Model.SelectedGroupIds.Count</span>
+                                    <span>Групп: @Model.SelectedGroupIds.Count</span>
                                 }
                                 else
                                 {
-                                <span>Настроить доступ</span>
+                                    <span>Доступ</span>
                                 }
                             </button>
 
-                            <div class="dropdown-menu w-100 p-3 shadow border-0 text-start" style="min-width: 320px;">
+                            <div class="dropdown-menu w-100 p-3 shadow border-0 text-start" style="min-width: 300px;">
                                 <form asp-action="UpdateGroups" method="post">
-                                    <input type="hidden" name="SubjectId" value="@Model.Id" />
-                                    <input type="hidden" name="SubjectTitle" value="@Model.Title" />
+                                    <input type="hidden" name="SubjectId" value="@Model.Id"/>
+                                    <input type="hidden" name="SubjectTitle" value="@Model.Title"/>
 
                                     <h6 class="dropdown-header px-0 text-dark fw-bold mb-2">Выберите группы:</h6>
-
-                                    <input type="text" class="form-control form-control-sm mb-2"
-                                           placeholder="Поиск..."
-                                           onkeyup="filterGroupsList(this)">
+                                    <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..." onkeyup="filterGroupsList(this)">
 
                                     <div class="group-list-container mb-2" style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px;">
                                         @if (Model.AllGroups.Any())
                                         {
-                                        foreach (var group in Model.AllGroups)
-                                        {
-                                        bool isChecked = Model.SelectedGroupIds.Contains(group.Id);
-
-                                        <div class="list-item">
-                                            <div class="form-check m-0">
-                                                <input class="form-check-input item-checkbox"
-                                                       type="checkbox"
-                                                       name="SelectedGroupIds"
-                                                       value="@group.Id"
-                                                       id="g_@group.Id"
-                                                       @(isChecked ? "checked" : "")>
-                                                <label class="form-check-label group-name small" for="g_@group.Id">
-                                                    @group.GroupName
-                                                </label>
-                                            </div>
-                                        </div>
-                                        }
+                                            foreach (var group in Model.AllGroups)
+                                            {
+                                                bool isChecked = Model.SelectedGroupIds.Contains(group.Id);
+                                                <div class="list-item">
+                                                    <div class="form-check m-0">
+                                                        <input class="form-check-input item-checkbox" type="checkbox" name="SelectedGroupIds" value="@group.Id" id="g_@group.Id" @(isChecked ? "checked" : "")>
+                                                        <label class="form-check-label group-name small" for="g_@group.Id">@group.GroupName</label>
+                                                    </div>
+                                                </div>
+                                            }
                                         }
                                         else
                                         {
-                                        <div class="text-muted small text-center p-3">Нет доступных групп</div>
+                                            <div class="text-muted small text-center p-3">Нет доступных групп</div>
                                         }
                                         <div class="text-muted small text-center p-3 no-results" style="display:none;">Нет совпадений</div>
                                     </div>
 
                                     <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
                                         <div class="form-check mb-0">
-                                            <input class="form-check-input" type="checkbox" id="selectAllGroups_@Model.Id"
-                                                   onchange="toggleAllVisible(this)">
-                                            <label class="form-check-label small text-muted" for="selectAllGroups_@Model.Id" style="cursor: pointer;">
-                                                Все (видимые)
-                                            </label>
+                                            <input class="form-check-input" type="checkbox" id="selectAllGroups_@Model.Id" onchange="toggleAllVisible(this)">
+                                            <label class="form-check-label small text-muted" for="selectAllGroups_@Model.Id" style="cursor: pointer;">Все</label>
                                         </div>
                                         <button type="submit" class="btn btn-primary btn-sm px-3">Сохранить</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
-                        <div class="dropdown mt-2">
-                            <button class="btn btn-outline-secondary w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                Статус: @(Model.Status == ContentStatus.Published ? "Опубликован" : "Черновик")
+
+                        <div class="dropdown w-50">
+                            <button class="btn btn-outline-secondary w-100 dropdown-toggle text-truncate" type="button" data-bs-toggle="dropdown">
+                                @(Model.Status == ContentStatus.Published ? "Опубликован" : "Скрыт")
                             </button>
                             <ul class="dropdown-menu w-100">
                                 <li>
-                                    <form asp-controller="Subjects" asp-action="ChangeStatus" method="post">
-                                        <input type="hidden" name="id" value="@Model.Id"/>
-                                        <input type="hidden" name="status" value="@ContentStatus.Draft"/>
+                                    <form asp-controller="CourseContent" asp-action="ChangeSubjectStatus" method="post">
+                                        <input type="hidden" name="subjectId" value="@Model.Id"/>
+                                        <input type="hidden" name="status" value="@ContentStatus.Hidden"/>
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
-                                            <i class="bi bi-pencil me-2 text-warning"></i> Черновик
+                                            <i class="bi bi-eye-slash me-2 text-secondary"></i> Скрыт
                                         </button>
                                     </form>
                                 </li>
                                 <li>
-                                    <form asp-controller="Subjects" asp-action="ChangeStatus" method="post">
-                                        <input type="hidden" name="id" value="@Model.Id"/>
+                                    <form asp-controller="CourseContent" asp-action="ChangeSubjectStatus" method="post">
+                                        <input type="hidden" name="subjectId" value="@Model.Id"/>
                                         <input type="hidden" name="status" value="@ContentStatus.Published"/>
                                         <button type="submit" class="dropdown-item d-flex align-items-center">
-                                            <i class="bi bi-check-circle me-2 text-success"></i> Опубликовать
+                                            <i class="bi bi-check-circle me-2 text-success"></i> Опубликован
                                         </button>
                                     </form>
                                 </li>
@@ -229,34 +203,23 @@ bool isAdmin = ViewBag.IsAdmin ?? false;
         const container = input.closest('.dropdown-menu').querySelector('.group-list-container');
         const items = container.querySelectorAll('.list-item');
         let hasVisibleItems = false;
-
         items.forEach(item => {
             const text = item.querySelector('.group-name').innerText.toLowerCase();
-            if (text.includes(filter)) {
-                item.style.display = ""; 
-                hasVisibleItems = true;
-            } else {
-                item.style.display = "none"; 
-            }
+            if (text.includes(filter)) { item.style.display = ""; hasVisibleItems = true; } else { item.style.display = "none"; }
         });
-
         const noRes = container.querySelector('.no-results');
         if (noRes) noRes.style.display = hasVisibleItems ? "none" : "block";
-
         const selectAllCb = input.closest('.dropdown-menu').querySelector('input[id^="selectAllGroups"]');
-        if(selectAllCb) selectAllCb.checked = false;
+        if (selectAllCb) selectAllCb.checked = false;
     }
-
+    
     function toggleAllVisible(selectAllCheckbox) {
         const container = selectAllCheckbox.closest('.dropdown-menu').querySelector('.group-list-container');
         const items = container.querySelectorAll('.list-item');
-
         items.forEach(item => {
             if (item.style.display !== "none") {
                 const checkbox = item.querySelector('.item-checkbox');
-                if (checkbox) {
-                    checkbox.checked = selectAllCheckbox.checked;
-                }
+                if (checkbox) { checkbox.checked = selectAllCheckbox.checked; }
             }
         });
     }

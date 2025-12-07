@@ -3,51 +3,50 @@
     ViewData["Title"] = "Загрузка лекции";
 }
 
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="bi bi-cloud-upload"></i> Добавить лекцию</h4>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку лекций
+        </a>
+        <h2 class="fw-bold mt-2">Добавить лекцию</h2>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form asp-action="CreateLecture" method="post" enctype="multipart/form-data">
+                
+                <input type="hidden" asp-for="SubjectId" />
+                
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-bold">Название лекции</label>
+                    <input asp-for="Title" class="form-control form-control-lg" placeholder="Например: Введение в тему" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
                 </div>
-                <div class="card-body">
-                    <form asp-action="CreateLecture" method="post" enctype="multipart/form-data">
-                        
-                        <input type="hidden" asp-for="SubjectId" />
-                        
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                        <div class="mb-3">
-                            <label asp-for="Title" class="form-label fw-bold">Название лекции</label>
-                            <input asp-for="Title" class="form-control form-control-lg" placeholder="Например: Введение в тему" />
-                            <span asp-validation-for="Title" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-4">
-                            <label asp-for="UploadedFile" class="form-label fw-bold">Файл материала</label>
-                            <input type="file" asp-for="UploadedFile" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" />
-                            <div class="form-text">Поддерживаются: PDF, Word, PowerPoint.</div>
-                            <span asp-validation-for="UploadedFile" class="text-danger"></span>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" asp-for="IsPublished" id="publishSwitch" />
-                                <label class="form-check-label" for="publishSwitch">Опубликовать сразу (студенты увидят материал)</label>
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between">
-                            <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Отмена
-                            </a>
-                            <button type="submit" class="btn btn-primary px-4">
-                                <i class="bi bi-save"></i> Сохранить
-                            </button>
-                        </div>
-                    </form>
+                <div class="mb-4">
+                    <label asp-for="UploadedFile" class="form-label fw-bold">Файл материала</label>
+                    <input type="file" asp-for="UploadedFile" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" />
+                    <div class="form-text">Поддерживаются: PDF, Word, PowerPoint.</div>
+                    <span asp-validation-for="UploadedFile" class="text-danger"></span>
                 </div>
-            </div>
+                
+                <div class="alert alert-light border d-flex align-items-center mb-4">
+                    <i class="bi bi-info-circle text-primary fs-4 me-3"></i>
+                    <div>
+                        Лекция будет создана со статусом <strong>Скрыто</strong>.<br/>
+                        Вы сможете опубликовать её после проверки загруженного файла.
+                    </div>
+                </div>
+                
+                <div class="d-flex">
+                    <button type="submit" class="btn btn-success px-4 me-2">Сохранить</button>
+                    <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

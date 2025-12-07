@@ -1,18 +1,17 @@
-﻿@using CourseProject.DataBase.Enums
-@model CourseProject.DataBase.DbModels.Subject
+﻿@model CourseProject.DataBase.DbModels.Subject
 
 @{
     ViewData["Title"] = Model.Title;
 }
 
 <div class="container py-4">
+    <div class="mb-3">
+        <a asp-action="Index" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку курсов
+        </a>
+    </div>
+
     <div class="mb-4">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-2">
-                <li class="breadcrumb-item"><a asp-action="Index">Мои курсы</a></li>
-                <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
-            </ol>
-        </nav>
         <h1 class="fw-bold display-6">@Model.Title</h1>
         <p class="text-muted lead fs-6">@Model.Description</p>
     </div>

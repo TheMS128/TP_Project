@@ -6,95 +6,103 @@
     string btnText = currentCount > 0 ? $"Выбрано: {currentCount}" : "-- Выберите предметы --";
 }
 
-<h2>Редактирование преподавателя</h2>
-<hr/>
-<div class="row">
-    <div class="col-md-5">
-        <form asp-action="EditTeacher" method="post" id="editTeacherForm">
-            <input type="hidden" asp-for="Id"/>
-            <div asp-validation-summary="All" class="text-danger"></div>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageTeachers" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку преподавателей
+        </a>
+        <h2 class="fw-bold mt-2">Редактирование преподавателя</h2>
+    </div>
 
-            <div class="mb-3">
-                <label asp-for="FullName" class="form-label">ФИО</label>
-                <input asp-for="FullName" class="form-control"/>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label">Email</label>
-                <input asp-for="Email" class="form-control"/>
-            </div>
+    <hr/>
+    <div class="row">
+        <div class="col-md-5">
+            <form asp-action="EditTeacher" method="post" id="editTeacherForm">
+                <input type="hidden" asp-for="Id"/>
+                <div asp-validation-summary="All" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label class="form-label fw-bold">Преподаваемые дисциплины</label>
-                <div class="dropdown">
-                    <button
-                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
-                        type="button"
-                        id="subjectsDropdownBtn"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
-                        @btnText
-                    </button>
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label">ФИО</label>
+                    <input asp-for="FullName" class="form-control"/>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label">Email</label>
+                    <input asp-for="Email" class="form-control"/>
+                </div>
 
-                    <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Преподаваемые дисциплины</label>
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
+                            type="button"
+                            id="subjectsDropdownBtn"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            @btnText
+                        </button>
 
-                        <input type="text"
-                               class="form-control form-control-sm mb-2"
-                               placeholder="Поиск предмета..."
-                               onkeyup="filterSubjectsInForm(this)">
+                        <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
 
-                        <div class="subject-list-container"
-                             style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
-                            @if (allSubjects.Any())
-                            {
-                                foreach (var subject in allSubjects)
+                            <input type="text"
+                                   class="form-control form-control-sm mb-2"
+                                   placeholder="Поиск предмета..."
+                                   onkeyup="filterSubjectsInForm(this)">
+
+                            <div class="subject-list-container"
+                                 style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
+                                @if (allSubjects.Any())
                                 {
-                                    bool isChecked = Model.SelectedSubjectIds != null && Model.SelectedSubjectIds.Contains(subject.Id);
+                                    foreach (var subject in allSubjects)
+                                    {
+                                        bool isChecked = Model.SelectedSubjectIds != null && Model.SelectedSubjectIds.Contains(subject.Id);
 
-                                    <div class="form-check subject-item">
-                                        <input class="form-check-input subject-checkbox"
-                                               type="checkbox"
-                                               name="SelectedSubjectIds"
-                                               value="@subject.Id"
-                                               id="subj_@subject.Id"
-                                               @(isChecked ? "checked" : "")
-                                               onchange="updateSubjectCountLabel()">
-                                        <label class="form-check-label small" for="subj_@subject.Id">
-                                            @subject.Title
-                                        </label>
-                                    </div>
+                                        <div class="form-check subject-item">
+                                            <input class="form-check-input subject-checkbox"
+                                                   type="checkbox"
+                                                   name="SelectedSubjectIds"
+                                                   value="@subject.Id"
+                                                   id="subj_@subject.Id"
+                                                   @(isChecked ? "checked" : "")
+                                                   onchange="updateSubjectCountLabel()">
+                                            <label class="form-check-label small" for="subj_@subject.Id">
+                                                @subject.Title
+                                            </label>
+                                        </div>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <div class="text-muted small text-center p-2">Список предметов пуст</div>
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
+                                else
+                                {
+                                    <div class="text-muted small text-center p-2">Список предметов пуст</div>
+                                }
+                                <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="selectAllVisible"
-                                       onchange="toggleVisibleSubjectsInForm(this)">
-                                <label class="form-check-label small text-muted" for="selectAllVisible">Все
-                                    (видимые)</label>
+                            <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="selectAllVisible"
+                                           onchange="toggleVisibleSubjectsInForm(this)">
+                                    <label class="form-check-label small text-muted" for="selectAllVisible">Все
+                                        (видимые)</label>
+                                </div>
+                                <small class="text-primary cursor-pointer"
+                                       onclick="document.getElementById('subjectsDropdownBtn').click()"
+                                       style="cursor: pointer;">Готово</small>
                             </div>
-                            <small class="text-primary cursor-pointer"
-                                   onclick="document.getElementById('subjectsDropdownBtn').click()"
-                                   style="cursor: pointer;">Готово</small>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Описание</label>
-                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
-            </div>
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                </div>
 
-            <button type="submit" class="btn btn-primary">Сохранить</button>
-            <a asp-action="ManageTeachers" class="btn btn-secondary">Отмена</a>
-        </form>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <a asp-action="ManageTeachers" class="btn btn-secondary">Отмена</a>
+            </form>
+        </div>
     </div>
 </div>
 

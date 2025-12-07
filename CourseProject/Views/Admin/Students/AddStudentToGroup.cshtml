@@ -3,33 +3,41 @@
     ViewData["Title"] = "Добавление студента";
 }
 
-<h3>Добавить студента в группу: <span class="text-primary">@Model.GroupName</span></h3>
-<hr />
-
-@if (Model.AvailableStudents.Any())
-{
-    <form asp-action="AddStudentToGroup" method="post">
-        <input type="hidden" asp-for="GroupId" />
-        
-        <div class="mb-3">
-            <label class="form-label">Выберите студента (показаны только свободные):</label>
-            <select asp-for="SelectedStudentId" class="form-select">
-                @foreach (var st in Model.AvailableStudents)
-                {
-                    <option value="@st.Id">@st.FullName (@st.Email)</option>
-                }
-            </select>
-        </div>
-        
-        <button type="submit" class="btn btn-success">Добавить</button>
-        <a asp-action="ManageGroups" class="btn btn-secondary">Отмена</a>
-    </form>
-}
-else
-{
-    <div class="alert alert-warning">
-        Нет свободных студентов (все уже распределены по группам).
-        <a asp-action="CreateStudent">Создать нового?</a>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageGroups" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к группам
+        </a>
+        <h2 class="fw-bold mt-2">Добавить студента в группу: <span class="text-primary">@Model.GroupName</span></h2>
     </div>
-    <a asp-action="ManageGroups" class="btn btn-secondary">Назад</a>
-}
+
+    <hr />
+
+    @if (Model.AvailableStudents.Any())
+    {
+        <form asp-action="AddStudentToGroup" method="post">
+            <input type="hidden" asp-for="GroupId" />
+        
+            <div class="mb-3">
+                <label class="form-label">Выберите студента (показаны только свободные):</label>
+                <select asp-for="SelectedStudentId" class="form-select">
+                    @foreach (var st in Model.AvailableStudents)
+                    {
+                        <option value="@st.Id">@st.FullName (@st.Email)</option>
+                    }
+                </select>
+            </div>
+        
+            <button type="submit" class="btn btn-success">Добавить</button>
+            <a asp-action="ManageGroups" class="btn btn-secondary">Отмена</a>
+        </form>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Нет свободных студентов (все уже распределены по группам).
+            <br/><a asp-action="CreateStudent" class="alert-link">Создать нового?</a>
+        </div>
+        <a asp-action="ManageGroups" class="btn btn-secondary">Назад</a>
+    }
+</div>

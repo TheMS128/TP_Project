@@ -1,13 +1,29 @@
-﻿@using CourseProject.DataBase.DbModels
+﻿@using CourseProject.DataBase.Enums
 @model CourseProject.DataBase.DbModels.Subject
 @{
     ViewData["Title"] = "Управление лекциями";
 }
 
 <div class="container py-4">
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="mb-4">
         <a asp-action="Index" asp-route-subjectId="@Model.Id" class="text-decoration-none text-muted">
-            <i class="bi bi-arrow-left"></i> Назад
+            <i class="bi bi-arrow-left"></i> Назад в меню предмета
         </a>
         <h2 class="fw-bold mt-2">Лекции: <span class="text-primary">@Model.Title</span></h2>
     </div>
@@ -18,7 +34,10 @@
         </a>
 
         <div class="d-flex">
-            <input type="text" id="lectureSearchInput" class="form-control me-2" placeholder="Поиск лекции..." style="width: 250px;" onkeyup="filterLectures()" />
+            <input type="text" id="lectureSearchInput" class="form-control me-2" placeholder="Поиск лекции..." 
+                   style="width: 250px;" onkeyup="filterLectures()" />
+            <button type="button" class="btn btn-outline-primary me-2" onclick="filterLectures()">Поиск</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="resetFilter()">Сброс</button>
         </div>
     </div>
 
@@ -44,39 +63,46 @@
                             </td>
 
                             <td class="text-center">
-                                <a asp-action="DownloadLecture" asp-route-id="@lecture.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-download me-1"></i>Скачать
-                                </a>
+                                @if (string.IsNullOrEmpty(lecture.FilePath))
+                                {
+                                    <span class="text-danger small">Нет файла</span>
+                                }
+                                else
+                                {
+                                    <a asp-action="DownloadLecture" asp-controller="Subjects" asp-route-id="@lecture.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-download me-1"></i>Скачать
+                                    </a>
+                                }
                             </td>
 
                             <td class="text-center">
                                 <div class="dropdown">
                                     @{
-                                        var btnClass = lecture.IsPublished ? "btn-success" : "btn-secondary";
-                                        var statusText = lecture.IsPublished ? "Опубликовано" : "Скрыто";
-                                        var iconClass = lecture.IsPublished ? "bi-check-circle" : "bi-eye-slash";
+                                        var btnClass = lecture.Status == ContentStatus.Published ? "btn-success" : "btn-secondary";
+                                        var statusText = lecture.Status == ContentStatus.Published ? "Активна" : "Скрыта";
+                                        var iconClass = lecture.Status == ContentStatus.Published ? "bi-check-circle" : "bi-eye-slash";
                                     }
 
                                     <button class="btn btn-sm dropdown-toggle @btnClass" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 140px;">
-                                        <i class="bi @iconClass me-1"></i>@statusText
+                                        <i class="bi me-1 @iconClass"></i>@statusText
                                     </button>
 
                                     <ul class="dropdown-menu shadow">
                                         <li>
                                             <form asp-action="ChangeLectureStatus" method="post">
                                                 <input type="hidden" name="id" value="@lecture.Id" />
-                                                <input type="hidden" name="isPublished" value="false" />
-                                                <button type="submit" class="dropdown-item @(!lecture.IsPublished ? "active" : "")">
-                                                    <i class="bi bi-eye-slash me-2"></i>Скрыть
+                                                <input type="hidden" name="newStatus" value="@ContentStatus.Published" /> 
+                                                <button type="submit" class="dropdown-item @(lecture.Status == ContentStatus.Published ? "active" : "")">
+                                                    <i class="bi bi-check-circle me-2"></i>Опубликовать
                                                 </button>
                                             </form>
                                         </li>
                                         <li>
                                             <form asp-action="ChangeLectureStatus" method="post">
                                                 <input type="hidden" name="id" value="@lecture.Id" />
-                                                <input type="hidden" name="isPublished" value="true" />
-                                                <button type="submit" class="dropdown-item @(lecture.IsPublished ? "active" : "")">
-                                                    <i class="bi bi-check-circle me-2"></i>Опубликовать
+                                                <input type="hidden" name="newStatus" value="@ContentStatus.Hidden" /> 
+                                                <button type="submit" class="dropdown-item @(lecture.Status == ContentStatus.Hidden ? "active" : "")">
+                                                    <i class="bi bi-eye-slash me-2"></i>Скрыть
                                                 </button>
                                             </form>
                                         </li>
@@ -89,11 +115,11 @@
                             </td>
 
                             <td class="text-end">
-                                <a asp-action="EditLecture" asp-route-id="@lecture.Id" class="btn btn-sm btn-warning me-1">
+                                <a asp-action="EditLecture" asp-route-id="@lecture.Id" class="btn btn-sm btn-warning me-1" title="Редактировать">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <form asp-action="DeleteLecture" asp-route-id="@lecture.Id" method="post" class="d-inline" onsubmit="return confirm('Удалить?');">
-                                    <button type="submit" class="btn btn-sm btn-danger">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Удалить">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
@@ -140,5 +166,11 @@
         if (noDataMsg) {
             noDataMsg.style.display = hasVisible ? "none" : "block";
         }
+    }
+
+    function resetFilter() {
+        const input = document.getElementById("lectureSearchInput");
+        input.value = "";
+        filterLectures(); 
     }
 </script>

@@ -4,9 +4,16 @@
     ViewData["Title"] = "Управление преподавателями курса";
 }
 
-<div class="container mt-4">
-    <h3 class="mb-4">Управление курсом: <span class="text-primary">@Model.SubjectTitle</span></h3>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageSubjects" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку предметов
+        </a>
+        <h2 class="fw-bold mt-2">Управление курсом: <span class="text-primary">@Model.SubjectTitle</span></h2>
+    </div>
     
+    <hr />
+
     <div class="row">
         <div class="col-md-6 mb-4">
             <div class="card border-success shadow-sm h-100">
@@ -75,11 +82,5 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <div class="mt-3">
-        <a asp-action="ManageSubjects" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Вернуться к списку предметов
-        </a>
     </div>
 </div>

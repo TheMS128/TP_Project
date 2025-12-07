@@ -9,9 +9,7 @@ public class Test
     public int? DaysToComplete { get; set; }
     public int? TimeLimitMinutes { get; set; }
     public int? MaxAttempts { get; set; }
-    public bool IsPublished { get; set; }
-    public ContentStatus Status { get; set; } = ContentStatus.Draft;
-    
+    public ContentStatus Status { get; set; } = ContentStatus.Hidden;
     public virtual List<Question> Questions { get; set; }
     public int SubjectId { get; set; }
     public virtual Subject Subject { get; set; }

@@ -1,10 +1,22 @@
 ﻿@using CourseProject.DataBase.Enums
 @model CourseProject.DataBase.DbModels.Subject
-@{ ViewData["Title"] = "Управление тестами"; }
+@{
+    ViewData["Title"] = "Управление тестами";
+}
 
 <div class="container py-4">
+    
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="mb-4">
-        <a asp-action="Index" asp-route-subjectId="@Model.Id" class="text-decoration-none text-muted">
+        <a asp-controller="CourseContent" asp-action="Index" asp-route-subjectId="@Model.Id"
+           class="text-decoration-none text-muted">
             <i class="bi bi-arrow-left"></i> Назад в меню предмета
         </a>
         <h2 class="fw-bold mt-2">Тесты: @Model.Title</h2>
@@ -16,110 +28,143 @@
         </a>
 
         <div class="d-flex">
-            <input type="text" id="testSearchInput" class="form-control me-2" placeholder="Поиск теста..." style="width: 250px;" onkeyup="filterTests()" />
-            <button type="button" class="btn btn-outline-primary" onclick="filterTests()">Поиск</button>
+            <input type="text" id="testSearchInput" class="form-control me-2" placeholder="Поиск теста..."
+                   style="width: 250px;" onkeyup="filterTests()"/>
+            <button type="button" class="btn btn-outline-primary me-2" onclick="filterTests()">Поиск</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="resetFilter()">Сброс</button>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-hover align-middle table-bordered" id="testsTable">
-            <thead class="table-light">
-                <tr>
-                    <th class="text-start">Название</th>
-                    <th class="text-center" style="width: 150px;">Статус</th>
-                    <th class="text-center">Ограничения</th>
-                    <th class="text-center" style="width: 120px;">Вопросы</th>
-                    <th class="text-end" style="width: 320px;">Действия</th>
+    <table class="table table-hover align-middle table-bordered" id="testsTable">
+        <thead class="table-light">
+        <tr>
+            <th class="text-start">Название</th>
+            <th class="text-center" style="width: 150px;">Статус</th>
+            <th class="text-center">Ограничения</th>
+            <th class="text-center" style="width: 120px;">Вопросы</th>
+            <th class="text-end" style="width: 320px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        @if (Model.Tests != null && Model.Tests.Any())
+        {
+            foreach (var test in Model.Tests)
+            {
+                <tr class="test-row">
+                    <td class="text-start fw-bold">
+                        @test.Title
+                    </td>
+
+                    <td class="text-center">
+                        <div class="dropdown">
+                            @{
+                                var btnClass = test.Status == ContentStatus.Published ? "btn-success" : "btn-secondary";
+                                var statusText = test.Status == ContentStatus.Published ? "Активен" : "Скрыт";
+                                var iconClass = test.Status == ContentStatus.Published ? "bi-check-circle" : "bi-eye-slash";
+                            }
+                            <button class="btn btn-sm dropdown-toggle @btnClass" type="button" data-bs-toggle="dropdown"
+                                    aria-expanded="false" style="min-width: 110px;">
+                                <i class="bi @iconClass me-1"></i>@statusText
+                            </button>
+                            <ul class="dropdown-menu shadow">
+                                <li>
+                                    <form asp-action="ChangeTestStatus" method="post">
+                                        <input type="hidden" name="testId" value="@test.Id"/>
+                                        <input type="hidden" name="newStatus" value="@ContentStatus.Published"/>
+                                        <button type="submit" class="dropdown-item @(test.Status == ContentStatus.Published ? "active" : "")">
+                                            <i class="bi bi-check-circle me-2"></i>Опубликовать
+                                        </button>
+                                    </form>
+                                </li>
+                                <li>
+                                    <form asp-action="ChangeTestStatus" method="post">
+                                        <input type="hidden" name="testId" value="@test.Id"/>
+                                        <input type="hidden" name="newStatus" value="@ContentStatus.Hidden"/>
+                                        <button type="submit" class="dropdown-item @(test.Status == ContentStatus.Hidden ? "active" : "")">
+                                            <i class="bi bi-eye-slash me-2"></i>Скрыть
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-2">
+                            @if (test.TimeLimitMinutes.HasValue)
+                            {
+                                <span class="badge bg-light text-dark border" title="Лимит времени">
+                                        <i class="bi bi-stopwatch"></i> @test.TimeLimitMinutes мин
+                                    </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-muted border">∞ время</span>
+                            }
+
+                            @if (test.MaxAttempts.HasValue)
+                            {
+                                <span class="badge bg-light text-dark border" title="Попытки">
+                                        <i class="bi bi-arrow-repeat"></i> @test.MaxAttempts
+                                    </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-muted border">∞ попытки</span>
+                            }
+                        </div>
+                    </td>
+
+                    <td class="text-center">
+                        @{
+                            var qCount = test.Questions?.Count ?? 0;
+                            var qBadgeClass = qCount > 0 ? "bg-info bg-opacity-10 text-info border-info" : "bg-danger bg-opacity-10 text-danger border-danger";
+                        }
+                        <span class="badge @qBadgeClass border border-opacity-25">
+                                @qCount вопр.
+                            </span>
+                    </td>
+
+                    <td class="text-end">
+                        <a asp-action="TestStats" asp-route-testId="@test.Id"
+                           class="btn btn-sm btn-info text-white me-1"
+                           title="Результаты">
+                            <i class="bi bi-graph-up"></i>
+                        </a>
+
+                        <a asp-action="ManageQuestions" asp-route-testId="@test.Id"
+                           class="btn btn-sm btn-outline-primary me-1" title="Вопросы">
+                            <i class="bi bi-list-task"></i>
+                        </a>
+
+                        <a asp-action="EditTest" asp-route-id="@test.Id" class="btn btn-sm btn-warning me-1" title="Редактировать">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+
+                        <form asp-action="DeleteTest" asp-route-id="@test.Id" method="post" class="d-inline"
+                              onsubmit="return confirm('Вы уверены? Это удалит тест и все его вопросы.');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @if (Model.Tests != null && Model.Tests.Any())
-                {
-                    foreach (var test in Model.Tests)
-                    {
-                        <tr class="test-row">
-                            <td class="text-start fw-bold">
-                                @test.Title
-                            </td>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center py-5 text-muted">
+                    <i class="bi bi-clipboard-x display-4 opacity-50"></i>
+                    <p class="mt-2 mb-0">В этом предмете пока нет тестов.</p>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
 
-                            <td class="text-center">
-                                @if (test.IsPublished)
-                                {
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">
-                                        <i class="bi bi-check-circle me-1"></i>Активен
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">
-                                        <i class="bi bi-eye-slash me-1"></i>Скрыт
-                                    </span>
-                                }
-                            </td>
-
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2">
-                                    @if (test.TimeLimitMinutes.HasValue)
-                                    {
-                                        <span class="badge bg-light text-dark border" title="Лимит времени">
-                                            <i class="bi bi-stopwatch"></i> @test.TimeLimitMinutes мин
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-light text-muted border">∞ время</span>
-                                    }
-
-                                    @if (test.MaxAttempts.HasValue)
-                                    {
-                                        <span class="badge bg-light text-dark border" title="Попытки">
-                                            <i class="bi bi-arrow-repeat"></i> @test.MaxAttempts
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-light text-muted border">∞ попытки</span>
-                                    }
-                                </div>
-                            </td>
-
-                            <td class="text-center">
-                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
-                                    @(test.Questions?.Count ?? 0) вопр.
-                                </span>
-                            </td>
-
-                            <td class="text-end">
-                                <a asp-action="ManageQuestions" asp-route-testId="@test.Id" class="btn btn-sm btn-info text-white me-1">
-                                    <i class="bi bi-list-task"></i> Вопросы
-                                </a>
-                                
-                                <a asp-action="EditTest" asp-route-id="@test.Id" class="btn btn-sm btn-warning me-1">
-                                    Изменить
-                                </a>
-
-                                <form asp-action="DeleteTest" asp-route-id="@test.Id" method="post" class="d-inline" onsubmit="return confirm('Вы уверены? Это удалит тест и все его вопросы.');">
-                                    <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
-                            <i class="bi bi-clipboard-x display-4 opacity-50"></i>
-                            <p class="mt-2 mb-0">В этом предмете пока нет тестов.</p>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        
-        <div id="noTestsFound" class="text-center py-4 text-muted" style="display: none;">
-            По вашему запросу ничего не найдено.
-        </div>
+    <div id="noTestsFound" class="text-center py-4 text-muted" style="display: none;">
+        По вашему запросу ничего не найдено.
     </div>
 </div>
 
@@ -148,5 +193,11 @@
         if (noDataMsg) {
             noDataMsg.style.display = hasVisible ? "none" : "block";
         }
+    }
+
+    function resetFilter() {
+        const input = document.getElementById("testSearchInput");
+        input.value = "";
+        filterTests(); 
     }
 </script>

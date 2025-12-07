@@ -3,10 +3,8 @@
 public class TestAttempt
 {
     public int Id { get; set; }
-    
     public int TestId { get; set; }
     public virtual Test Test { get; set; }
-
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; } 
     public float Score { get; set; }

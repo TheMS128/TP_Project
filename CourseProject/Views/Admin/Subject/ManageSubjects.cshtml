@@ -1,181 +1,211 @@
 ﻿@using CourseProject.DataBase.Enums
 @model CourseProject.Models.AdminViewModels.Subject.ManageSubjectsViewModel
-@{ ViewData["Title"] = "Управление предметами"; }
+@{
+    ViewData["Title"] = "Управление предметами";
+}
 
-<h2>Управление предметами</h2>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-controller="Admin" asp-action="Index" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад в панель администратора
+        </a>
+        <h2 class="fw-bold mt-2">Управление предметами</h2>
+    </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3 mt-3">
-    <a asp-action="CreateSubject" class="btn btn-success">
-        <i class="bi bi-plus-lg"></i> Добавить предмет
-    </a>
-
-    <form asp-action="ManageSubjects" method="get" class="d-flex">
-        <input type="text" name="searchString" value="@ViewData["SearchString"]" class="form-control me-2" placeholder="Поиск предмета..." style="width: 250px;" />
-        <button type="submit" class="btn btn-outline-primary">Поиск</button>
-        <a asp-action="ManageSubjects" class="btn btn-outline-secondary ms-1">Сброс</a>
-    </form>
-</div>
-
-<table class="table table-hover align-middle table-bordered">
-    <thead class="table-light">
-    <tr>
-        <th class="text-start">Название</th>
-        <th class="text-center" style="width: 140px;">Статус</th>
-        <th class="text-center">Преподаватели</th>
-        <th class="text-center">Группы</th>
-        <th class="text-end" style="width: 280px;">Действия</th>
-    </tr>
-    </thead>
-    <tbody>
-    @foreach (var subject in Model.Subjects)
+    @if (TempData["SubjectStatusError"] != null)
     {
-    <tr>
-        <td class="text-start">
-            <strong>@subject.Title</strong><br/>
-            <small class="text-muted">@subject.Description</small>
-        </td>
-
-        <td class="text-center">
-            <div class="dropdown">
-                @{
-                    var btnClass = subject.Status == ContentStatus.Published ? "btn-success" : 
-                                   subject.Status == ContentStatus.Hidden ? "btn-secondary" : "btn-warning text-dark";
-                    
-                    var statusText = subject.Status == ContentStatus.Published ? "Опубликован" : 
-                                     subject.Status == ContentStatus.Hidden ? "Скрыт" : "Черновик";
-                }
-                <button class="btn btn-sm dropdown-toggle @btnClass" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 110px;">
-                    @statusText
-                </button>
-                <ul class="dropdown-menu shadow">
-                    <li>
-                        <form asp-action="ChangeSubjectStatus" method="post">
-                            <input type="hidden" name="subjectId" value="@subject.Id" />
-                            <input type="hidden" name="newStatus" value="@ContentStatus.Draft" />
-                            <button type="submit" class="dropdown-item @(subject.Status == ContentStatus.Draft ? "active" : "")">
-                                <i class="bi bi-pencil-square me-2"></i>Черновик
-                            </button>
-                        </form>
-                    </li>
-                    <li>
-                        <form asp-action="ChangeSubjectStatus" method="post">
-                            <input type="hidden" name="subjectId" value="@subject.Id" />
-                            <input type="hidden" name="newStatus" value="@ContentStatus.Published" />
-                            <button type="submit" class="dropdown-item @(subject.Status == ContentStatus.Published ? "active" : "")">
-                                <i class="bi bi-check-circle me-2"></i>Опубликован
-                            </button>
-                        </form>
-                    </li>
-                    <li>
-                        <form asp-action="ChangeSubjectStatus" method="post">
-                            <input type="hidden" name="subjectId" value="@subject.Id" />
-                            <input type="hidden" name="newStatus" value="@ContentStatus.Hidden" />
-                            <button type="submit" class="dropdown-item @(subject.Status == ContentStatus.Hidden ? "active" : "")">
-                                <i class="bi bi-eye-slash me-2"></i>Скрыт
-                            </button>
-                        </form>
-                    </li>
-                </ul>
-            </div>
-        </td>
-
-        <td class="text-center">
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 120px;">
-                    Преподаватели: @subject.Teachers.Count
-                </button>
-                <div class="dropdown-menu p-3 shadow text-start" style="width: 320px;" onclick="event.stopPropagation()">
-                    <form asp-action="UpdateSubjectTeachers" method="post">
-                        <input type="hidden" name="subjectId" value="@subject.Id" />
-                        <h6 class="dropdown-header px-0">Выберите преподавателей:</h6>
-
-                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
-                               onkeyup="filterList(this, '.teacher-list-@subject.Id')">
-
-                        <div class="list-container teacher-list-@subject.Id" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
-                            @foreach (var teacher in Model.AllTeachers)
-                            {
-                            bool isAssigned = subject.Teachers.Any(t => t.Id == teacher.Id);
-                            <div class="form-check list-item">
-                                <input class="form-check-input item-checkbox" type="checkbox" name="selectedTeacherIds" value="@teacher.Id" id="t_@subject.Id@teacher.Id" @(isAssigned ? "checked" : "")>
-                                <label class="form-check-label small" for="t_@subject.Id@teacher.Id">@teacher.FullName</label>
-                            </div>
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="selectAllT_@subject.Id"
-                                       onchange="toggleAllVisible(this, '.teacher-list-@subject.Id')">
-                                <label class="form-check-label small text-muted" for="selectAllT_@subject.Id">Все (видимые)</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </td>
-
-        <td class="text-center">
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-outline-info dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 120px;">
-                    Группы: @(subject.EnrolledGroups?.Count ?? 0)
-                </button>
-                <div class="dropdown-menu p-3 shadow text-start" style="width: 320px;" onclick="event.stopPropagation()">
-                    <form asp-action="UpdateSubjectGroups" method="post">
-                        <input type="hidden" name="subjectId" value="@subject.Id" />
-                        <h6 class="dropdown-header px-0">Выберите группы:</h6>
-
-                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
-                               onkeyup="filterList(this, '.group-list-@subject.Id')">
-
-                        <div class="list-container group-list-@subject.Id" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
-                            @foreach (var group in Model.AllGroups)
-                            {
-                            bool isEnrolled = subject.EnrolledGroups != null && subject.EnrolledGroups.Any(g => g.Id == group.Id);
-                            <div class="form-check list-item">
-                                <input class="form-check-input item-checkbox" type="checkbox" name="selectedGroupIds" value="@group.Id" id="g_@subject.Id@group.Id" @(isEnrolled ? "checked" : "")>
-                                <label class="form-check-label small" for="g_@subject.Id@group.Id">@group.GroupName</label>
-                            </div>
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="selectAllG_@subject.Id"
-                                       onchange="toggleAllVisible(this, '.group-list-@subject.Id')">
-                                <label class="form-check-label small text-muted" for="selectAllG_@subject.Id">Все (видимые)</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </td>
-
-        <td class="text-end text-nowrap">
-            <a asp-controller="CourseContent" 
-               asp-action="Index" 
-               asp-route-subjectId="@subject.Id" 
-               class="btn btn-sm btn-info text-white me-1"
-               title="Управление лекциями и тестами">
-               <i class="bi bi-collection-play-fill"></i> Контент
-            </a>
-
-            <a asp-action="EditSubject" asp-route-id="@subject.Id" class="btn btn-sm btn-warning me-1">
-                <i class="bi bi-pencil"></i>
-            </a>
-
-            <form asp-action="DeleteSubject" asp-route-id="@subject.Id" method="post" class="d-inline" onsubmit="return confirm('Удалить предмет?');">
-                <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
-            </form>
-        </td>
-    </tr>
+        <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> @Html.Raw(TempData["SubjectStatusError"])
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
     }
-    </tbody>
-</table>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+        <a asp-action="CreateSubject" class="btn btn-success">
+            <i class="bi bi-plus-lg"></i> Добавить предмет
+        </a>
+
+        <form asp-action="ManageSubjects" method="get" class="d-flex">
+            <input type="text" name="searchString" value="@ViewData["SearchString"]" class="form-control me-2"
+                   placeholder="Поиск предмета..." style="width: 250px;"/>
+            <button type="submit" class="btn btn-outline-primary">Поиск</button>
+            <a asp-action="ManageSubjects" class="btn btn-outline-secondary ms-1">Сброс</a>
+        </form>
+    </div>
+
+    <table class="table table-hover align-middle table-bordered">
+        <thead class="table-light">
+        <tr>
+            <th class="text-start">Название</th>
+            <th class="text-center" style="width: 140px;">Статус</th>
+            <th class="text-center">Преподаватели</th>
+            <th class="text-center">Группы</th>
+            <th class="text-end" style="width: 200px;">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var subject in Model.Subjects)
+        {
+            <tr>
+                <td class="text-start">
+                    <strong>@subject.Title</strong><br/>
+                    <small class="text-muted">@subject.Description</small>
+                </td>
+
+                <td class="text-center">
+                    <div class="dropdown">
+                        @{
+                            var btnClass = subject.Status == ContentStatus.Published ? "btn-success" : "btn-secondary";
+                            var statusText = subject.Status == ContentStatus.Published ? "Опубликован" : "Скрыт";
+                        }
+                        <button class="btn btn-sm dropdown-toggle @btnClass" type="button" data-bs-toggle="dropdown"
+                                aria-expanded="false" style="min-width: 110px;">
+                            @statusText
+                        </button>
+                        <ul class="dropdown-menu shadow">
+                            <li>
+                                <form asp-action="ChangeSubjectStatus" method="post">
+                                    <input type="hidden" name="subjectId" value="@subject.Id"/>
+                                    <input type="hidden" name="newStatus" value="@ContentStatus.Published"/>
+                                    <button type="submit"
+                                            class="dropdown-item @(subject.Status == ContentStatus.Published ? "active" : "")">
+                                        <i class="bi bi-check-circle me-2"></i>Опубликован
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <form asp-action="ChangeSubjectStatus" method="post">
+                                    <input type="hidden" name="subjectId" value="@subject.Id"/>
+                                    <input type="hidden" name="newStatus" value="@ContentStatus.Hidden"/>
+                                    <button type="submit"
+                                            class="dropdown-item @(subject.Status == ContentStatus.Hidden ? "active" : "")">
+                                        <i class="bi bi-eye-slash me-2"></i>Скрыт
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </td>
+
+                <td class="text-center">
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 120px;">
+                            Преподаватели: @subject.Teachers.Count
+                        </button>
+                        <div class="dropdown-menu p-3 shadow text-start" style="width: 320px;"
+                             onclick="event.stopPropagation()">
+                            <form asp-action="UpdateSubjectTeachers" method="post">
+                                <input type="hidden" name="subjectId" value="@subject.Id"/>
+                                <h6 class="dropdown-header px-0">Выберите преподавателей:</h6>
+
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                                       onkeyup="filterList(this, '.teacher-list-@subject.Id')">
+
+                                <div class="list-container teacher-list-@subject.Id"
+                                     style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
+                                    @foreach (var teacher in Model.AllTeachers)
+                                    {
+                                        bool isAssigned = subject.Teachers.Any(t => t.Id == teacher.Id);
+                                        <div class="form-check list-item">
+                                            <input class="form-check-input item-checkbox" type="checkbox"
+                                                   name="selectedTeacherIds" value="@teacher.Id"
+                                                   id="t_@subject.Id@teacher.Id" @(isAssigned ? "checked" : "")>
+                                            <label class="form-check-label small"
+                                                   for="t_@subject.Id@teacher.Id">@teacher.FullName</label>
+                                        </div>
+                                    }
+                                    <div class="text-muted small text-center no-results" style="display:none;">Нет
+                                        совпадений
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="selectAllT_@subject.Id"
+                                               onchange="toggleAllVisible(this, '.teacher-list-@subject.Id')">
+                                        <label class="form-check-label small text-muted" for="selectAllT_@subject.Id">Все
+                                            (видимые)</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="text-center">
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-outline-info dropdown-toggle btn-sm" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 120px;">
+                            Группы: @(subject.EnrolledGroups?.Count ?? 0)
+                        </button>
+                        <div class="dropdown-menu p-3 shadow text-start" style="width: 320px;"
+                             onclick="event.stopPropagation()">
+                            <form asp-action="UpdateSubjectGroups" method="post">
+                                <input type="hidden" name="subjectId" value="@subject.Id"/>
+                                <h6 class="dropdown-header px-0">Выберите группы:</h6>
+
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                                       onkeyup="filterList(this, '.group-list-@subject.Id')">
+
+                                <div class="list-container group-list-@subject.Id"
+                                     style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; padding: 5px;">
+                                    @foreach (var group in Model.AllGroups)
+                                    {
+                                        bool isEnrolled = subject.EnrolledGroups != null && subject.EnrolledGroups.Any(g => g.Id == group.Id);
+                                        <div class="form-check list-item">
+                                            <input class="form-check-input item-checkbox" type="checkbox"
+                                                   name="selectedGroupIds" value="@group.Id" id="g_@subject.Id@group.Id"
+                                                   @(isEnrolled ? "checked" : "")>
+                                            <label class="form-check-label small"
+                                                   for="g_@subject.Id@group.Id">@group.GroupName</label>
+                                        </div>
+                                    }
+                                    <div class="text-muted small text-center no-results" style="display:none;">Нет
+                                        совпадений
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="selectAllG_@subject.Id"
+                                               onchange="toggleAllVisible(this, '.group-list-@subject.Id')">
+                                        <label class="form-check-label small text-muted" for="selectAllG_@subject.Id">Все
+                                            (видимые)</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="text-end text-nowrap">
+                    <a asp-controller="CourseContent"
+                       asp-action="Index"
+                       asp-route-subjectId="@subject.Id"
+                       class="btn btn-sm btn-info text-white me-1"
+                       title="Контент">
+                        <i class="bi bi-collection-play-fill"></i>
+                    </a>
+
+                    <a asp-action="EditSubject" asp-route-id="@subject.Id" class="btn btn-sm btn-warning me-1"
+                       title="Редактировать">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+
+                    <form asp-action="DeleteSubject" asp-route-id="@subject.Id" method="post" class="d-inline"
+                          onsubmit="return confirm('Удалить предмет?');">
+                        <button type="submit" class="btn btn-sm btn-danger" title="Удалить"><i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
 
 <script>
     function filterList(inputElement, containerSelector) {
@@ -206,7 +236,7 @@
         }
 
         const selectAllCb = dropdownMenu.querySelector('input[type="checkbox"][id^="selectAll"]');
-        if(selectAllCb) selectAllCb.checked = false;
+        if (selectAllCb) selectAllCb.checked = false;
     }
 
     function toggleAllVisible(selectAllCheckbox, containerSelector) {

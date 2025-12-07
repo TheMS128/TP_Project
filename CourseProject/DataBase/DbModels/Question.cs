@@ -7,7 +7,6 @@ public class Question
     public string Type { get; set; }
     public int Points { get; set; }
     public int TestId { get; set; }
-    
     public virtual List<AnswerOption> AnswerOptions { get; set; }
     public virtual Test Test { get; set; }
 }
