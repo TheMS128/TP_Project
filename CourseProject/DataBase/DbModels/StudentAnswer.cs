@@ -3,7 +3,6 @@
 public class StudentAnswer
 {
     public int Id { get; set; }
-    
     public int QuestionId { get; set; }
     public virtual Question Question { get; set; }
     public int TestAttemptId { get; set; }

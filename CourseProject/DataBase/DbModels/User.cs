@@ -8,7 +8,6 @@ public class User : IdentityUser
     public string Description { get; set; }
     public int? GroupId { get; set; }
     public virtual Group? Group { get; set; }
-
     public virtual List<Subject>? AssignedSubjects { get; set; }
     public virtual List<TestAttempt>? TestAttempts { get; set; }
 }
