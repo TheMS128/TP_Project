@@ -735,11 +735,11 @@ public class AdminController : Controller
             if (subject.Teachers != null && subject.Teachers.Any() &&
                 subject.EnrolledGroups != null && subject.EnrolledGroups.Any())
             {
-                subject.Status = DataBase.Enums.ContentStatus.Published;
+                subject.Status = ContentStatus.Published;
             }
             else
             {
-                subject.Status = DataBase.Enums.ContentStatus.Hidden;
+                subject.Status = ContentStatus.Hidden;
             }
 
             _context.Subjects.Add(subject);
