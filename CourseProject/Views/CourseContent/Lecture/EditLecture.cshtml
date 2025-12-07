@@ -4,98 +4,96 @@
     ViewData["Title"] = "Редактирование лекции";
 }
 
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-dark">
-                    <h4 class="mb-0"><i class="bi bi-file-earmark-text"></i> Редактирование лекции</h4>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку лекций
+        </a>
+        <h2 class="fw-bold mt-2">Редактирование лекции</h2>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form asp-action="EditLecture" method="post" enctype="multipart/form-data" id="editLectureForm">
+                <input type="hidden" asp-for="Id"/>
+                <input type="hidden" asp-for="SubjectId"/>
+                <input type="hidden" asp-for="ExistingFilePath"/>
+                <input type="hidden" asp-for="OriginalFileName"/>
+                
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-bold">Название лекции</label>
+                    <input asp-for="Title" class="form-control form-control-lg" placeholder="Введите тему лекции"/>
+                    <span asp-validation-for="Title" class="text-danger"></span>
                 </div>
-                <div class="card-body">
-                    <form asp-action="EditLecture" method="post" enctype="multipart/form-data" id="editLectureForm">
-                        <input type="hidden" asp-for="Id"/>
-                        <input type="hidden" asp-for="SubjectId"/>
-                        <input type="hidden" asp-for="ExistingFilePath"/>
-                        <input type="hidden" asp-for="OriginalFileName"/>
-                        
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                        <div class="mb-3">
-                            <label asp-for="Title" class="form-label fw-bold">Название лекции</label>
-                            <input asp-for="Title" class="form-control form-control-lg"
-                                   placeholder="Введите тему лекции"/>
-                            <span asp-validation-for="Title" class="text-danger"></span>
-                        </div>
+                <h5 class="mt-4 mb-3 border-bottom pb-2 text-muted">Файл материала</h5>
 
-                        <h5 class="mt-4 mb-3 text-muted border-bottom pb-2">Материалы и статус</h5>
-
-                        <div class="mb-4">
-                            <label asp-for="Status" class="form-label fw-bold">Статус лекции</label>
-                            <select asp-for="Status" class="form-select" id="lectureStatusSelect">
-                                <option value="@((int)ContentStatus.Hidden)">Скрыто</option>
-                                <option value="@((int)ContentStatus.Published)">Опубликовано</option>
-                            </select>
-                            <div class="form-text">
-                                Установите **Опубликовано**, чтобы сделать лекцию доступной для студентов.
-                            </div>
-                            <div id="fileMissingWarning" class="alert alert-warning mt-2" style="display:none;">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                **Внимание:** Вы не можете опубликовать лекцию без загруженного файла.
-                            </div>
-                            <span asp-validation-for="Status" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label text-muted">Текущий файл</label>
-                            <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-paperclip fs-4 me-2"></i>
-                                    <div>
-                                        @if (!string.IsNullOrEmpty(Model.ExistingFilePath))
-                                        {
-                                            <span class="fw-bold text-dark" id="currentFileName">
-                                                @(Model.OriginalFileName ?? System.IO.Path.GetFileName(Model.ExistingFilePath))
-                                            </span>
-                                            <br/>
-                                            <small class="text-muted">Этот файл используется сейчас</small>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted fst-italic" id="currentFileName">Файл еще не загружен</span>
-                                        }
-                                    </div>
-                                </div>
-
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Текущий файл</label>
+                    <div class="p-3 border rounded bg-light d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center overflow-hidden">
+                            <i class="bi bi-file-earmark-text fs-3 text-primary me-3"></i>
+                            <div class="text-truncate">
                                 @if (!string.IsNullOrEmpty(Model.ExistingFilePath))
                                 {
-                                    <a asp-action="DownloadLecture" asp-route-id="@Model.Id"
-                                       class="btn btn-sm btn-outline-primary" title="Скачать для проверки">
-                                        <i class="bi bi-download"></i> Скачать
-                                    </a>
+                                    <span class="fw-bold text-dark d-block text-truncate" id="currentFileName">
+                                        @(Model.OriginalFileName ?? System.IO.Path.GetFileName(Model.ExistingFilePath))
+                                    </span>
+                                    <small class="text-muted">Используется сейчас</small>
+                                }
+                                else
+                                {
+                                    <span class="text-danger fst-italic" id="currentFileName">Файл не загружен</span>
                                 }
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <label asp-for="UploadedFile" class="form-label fw-bold">Заменить файл</label>
-                            <input asp-for="UploadedFile" class="form-control" type="file" id="uploadedFileInput"/>
-                            <div class="form-text">Выберите новый файл только если хотите заменить текущий.</div>
-                            <span asp-validation-for="UploadedFile" class="text-danger"></span>
-                        </div>
-                        
-
-                        <div class="d-flex justify-content-between align-items-center mt-4">
-                            <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId"
-                               class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Назад
+                        @if (!string.IsNullOrEmpty(Model.ExistingFilePath))
+                        {
+                            <a asp-action="DownloadLecture" asp-controller="Subjects" asp-route-id="@Model.Id"
+                               class="btn btn-sm btn-outline-primary text-nowrap ms-3">
+                                <i class="bi bi-download"></i> Скачать
                             </a>
-                            <button type="submit" class="btn btn-primary px-4">
-                                <i class="bi bi-save"></i> Сохранить изменения
-                            </button>
-                        </div>
-                    </form>
+                        }
+                    </div>
                 </div>
-            </div>
+
+                <div class="mb-4">
+                    <label asp-for="UploadedFile" class="form-label">Заменить файл (опционально)</label>
+                    <input asp-for="UploadedFile" class="form-control" type="file" id="uploadedFileInput"/>
+                    <span asp-validation-for="UploadedFile" class="text-danger"></span>
+                </div>
+                
+                <h5 class="mt-4 mb-3 border-bottom pb-2 text-muted">Статус публикации</h5>
+
+                <div class="mb-4">
+                    <div class="border rounded p-3 bg-light">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" asp-for="Status" value="@((int)ContentStatus.Hidden)" id="statusHidden">
+                            <label class="form-check-label" for="statusHidden"><i class="bi bi-eye-slash text-secondary"></i> Скрыто</label>
+                        </div>
+                        <div class="form-check form-check-inline ms-3">
+                            <input class="form-check-input" type="radio" asp-for="Status" value="@((int)ContentStatus.Published)" id="statusPublished">
+                            <label class="form-check-label fw-bold text-success" for="statusPublished"><i class="bi bi-check-circle"></i> Опубликовано</label>
+                        </div>
+                    </div>
+                    
+                    <div id="fileMissingWarning" class="alert alert-warning mt-2" style="display:none;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Внимание:</strong> Вы не можете опубликовать лекцию без загруженного файла.
+                    </div>
+                    <span asp-validation-for="Status" class="text-danger"></span>
+                </div>
+
+                <div class="d-flex mt-4">
+                    <button type="submit" class="btn btn-primary px-4 me-2">Сохранить изменения</button>
+                    <a asp-action="ManageLectures" asp-route-subjectId="@Model.SubjectId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -105,32 +103,32 @@
 
     <script>
         document.getElementById('editLectureForm').addEventListener('submit', function (e) {
-            const statusSelect = document.getElementById('lectureStatusSelect');
+            const statusPublished = document.getElementById('statusPublished');
             const uploadedFile = document.getElementById('uploadedFileInput');
             const existingFilePath = document.querySelector('input[name="ExistingFilePath"]').value;
-            const fileMissingWarning = document.getElementById('fileMissingWarning');
+            const warningBox = document.getElementById('fileMissingWarning');
             
-            if (statusSelect.value === '@((int)ContentStatus.Published).toString()') {
-                
+            if (statusPublished.checked) {
                 const hasNewFile = uploadedFile.files.length > 0;
                 const hasExistingFile = existingFilePath && existingFilePath.trim() !== '';
 
                 if (!hasNewFile && !hasExistingFile) {
                     e.preventDefault(); 
-                    fileMissingWarning.style.display = 'block'; 
-                    
-                    statusSelect.scrollIntoView({ behavior: 'smooth' });
+                    warningBox.style.display = 'block'; 
+                    warningBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
-                    fileMissingWarning.style.display = 'none'; 
+                    warningBox.style.display = 'none'; 
                 }
             } else {
-                 fileMissingWarning.style.display = 'none';
+                 warningBox.style.display = 'none';
             }
         });
         
-        document.getElementById('lectureStatusSelect').addEventListener('change', function () {
-            document.getElementById('fileMissingWarning').style.display = 'none';
+        const radios = document.getElementsByName('Status');
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('fileMissingWarning').style.display = 'none';
+            });
         });
-        
     </script>
 }

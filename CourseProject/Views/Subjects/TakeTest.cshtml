@@ -3,62 +3,84 @@
     ViewData["Title"] = "Тестирование";
 }
 
-<div class="container mt-4">
-    <div class="sticky-top bg-white border-bottom py-3 mb-4 shadow-sm">
-        <div class="d-flex justify-content-between align-items-center">
-            <h4 class="m-0">@Model.Title</h4>
-            @if(Model.TimeLimitMinutes > 0)
-            {
-                <div class="text-danger fw-bold fs-5">
-                    <i class="bi bi-stopwatch"></i> <span id="timeRemaining">--:--</span>
-                </div>
-            }
+<div class="container py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold mb-0">@Model.Title</h2>
+            <small class="text-muted">Ответьте на все вопросы и нажмите "Завершить"</small>
         </div>
+        
+        @if(Model.TimeLimitMinutes > 0)
+        {
+            <div class="text-end">
+                <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.7rem;">Осталось времени</small>
+                <div class="text-danger fw-bold fs-4 font-monospace">
+                    <i class="bi bi-stopwatch me-1"></i><span id="timeRemaining">--:--</span>
+                </div>
+            </div>
+        }
     </div>
 
     <form asp-action="SubmitTest" method="post" id="testForm">
         <input type="hidden" name="TestAttemptId" value="@Model.TestAttemptId" />
 
-        @for (int i = 0; i < Model.Questions.Count; i++)
-        {
-            var q = Model.Questions[i];
-            <div class="card mb-4 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Вопрос @(i + 1) <small class="text-muted">(@q.Points баллов)</small></h5>
-                    <p class="card-text fs-5">@q.Text</p>
-                    
-                    <input type="hidden" name="Answers[@i].QuestionId" value="@q.QuestionId" />
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                
+                @for (int i = 0; i < Model.Questions.Count; i++)
+                {
+                    var q = Model.Questions[i];
+                    <div class="mb-5">
+                        <div class="d-flex align-items-baseline mb-3">
+                            <h5 class="fw-bold me-2 text-muted">@(i + 1).</h5>
+                            <h5 class="fw-bold text-dark">@q.Text</h5>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <span class="badge bg-light text-secondary border">@q.Points баллов</span>
+                            @if (q.Type == "Multiple") { <span class="badge bg-light text-info border">Несколько ответов</span> }
+                        </div>
 
-                    <div class="mt-3">
-                        @foreach (var opt in q.Options)
-                        {
-                            <div class="form-check mb-2">
-                                @if (q.Type == "Single")
-                                {
-                                    <input class="form-check-input" type="radio" 
-                                           name="Answers[@i].SelectedOptionIds" 
-                                           value="@opt.Id" 
-                                           id="opt_@opt.Id">
-                                }
-                                else
-                                {
-                                    <input class="form-check-input" type="checkbox" 
-                                           name="Answers[@i].SelectedOptionIds" 
-                                           value="@opt.Id" 
-                                           id="opt_@opt.Id">
-                                }
-                                <label class="form-check-label" for="opt_@opt.Id">@opt.Text</label>
-                            </div>
-                        }
+                        <input type="hidden" name="Answers[@i].QuestionId" value="@q.QuestionId" />
+
+                        <div class="ps-4 border-start border-3 border-light">
+                            @foreach (var opt in q.Options)
+                            {
+                                <div class="form-check mb-3">
+                                    @if (q.Type == "Single")
+                                    {
+                                        <input class="form-check-input" type="radio" 
+                                               name="Answers[@i].SelectedOptionIds" 
+                                               value="@opt.Id" 
+                                               id="opt_@opt.Id"
+                                               style="transform: scale(1.2); margin-top: 0.3rem;">
+                                    }
+                                    else
+                                    {
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="Answers[@i].SelectedOptionIds" 
+                                               value="@opt.Id" 
+                                               id="opt_@opt.Id"
+                                               style="transform: scale(1.2); margin-top: 0.3rem;">
+                                    }
+                                    <label class="form-check-label fs-5 ms-2" for="opt_@opt.Id" style="cursor: pointer;">
+                                        @opt.Text
+                                    </label>
+                                </div>
+                            }
+                        </div>
                     </div>
-                </div>
-            </div>
-        }
+                    @if (i < Model.Questions.Count - 1) { <hr class="my-5 opacity-25" /> }
+                }
 
-        <div class="d-grid gap-2 mb-5">
-            <button type="submit" class="btn btn-primary btn-lg" onclick="return confirm('Завершить тест?');">
-                Завершить и отправить
-            </button>
+                <div class="d-grid mt-5 pt-4 border-top">
+                    <button type="submit" class="btn btn-primary btn-lg py-3" onclick="return confirm('Вы уверены, что хотите завершить тест? Изменить ответы будет нельзя.');">
+                        Завершить и отправить <i class="bi bi-send-fill ms-2"></i>
+                    </button>
+                </div>
+                
+            </div>
         </div>
     </form>
 </div>
@@ -80,17 +102,41 @@
 
                 if (diff <= 0) {
                     timerElement.innerText = "00:00";
-                    alert("Время вышло! Тест отправляется.");
+                    clearInterval(timerInterval);
+                    alert("Время вышло! Тест будет отправлен автоматически.");
                     form.submit();
                     return;
                 }
 
+                const hours = Math.floor(diff / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                timerElement.innerText = (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+                
+                let timeString = "";
+                if (hours > 0) {
+                    timeString += (hours < 10 ? "0" : "") + hours + ":";
+                }
+                timeString += (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+                
+                timerElement.innerText = timeString;
+                
+                if (diff < 60000) {
+                    timerElement.parentElement.classList.add("text-danger");
+                    timerElement.parentElement.classList.add("blink"); 
+                }
             }
-            setInterval(updateTimer, 1000);
-            updateTimer();
+            
+            const timerInterval = setInterval(updateTimer, 1000);
+            updateTimer(); 
         }
     </script>
+    
+    <style>
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @@keyframes blinker {
+            50% { opacity: 0.5; }
+        }
+    </style>
 }

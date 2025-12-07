@@ -25,40 +25,34 @@ public class AdminController : Controller
         _userManager = userManager;
     }
 
-    public IActionResult Index()
-    {
-        return View();
-    }
+    public IActionResult Index() => View();
+
+    // ============================================================
+    // УПРАВЛЕНИЕ СТУДЕНТАМИ
+    // ============================================================
 
     public async Task<IActionResult> ManageStudents(string searchString)
     {
-        var studentRoleId = await _context.Roles
-            .Where(r => r.Name == "Student")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
+        var studentRoleId = await GetRoleIdAsync("Student");
 
         var query = _context.Users
+            .AsNoTracking()
             .Include(u => u.Group)
             .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-            .AsQueryable();
+                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id));
 
         if (!string.IsNullOrEmpty(searchString))
         {
-            searchString = searchString.Trim().ToLower();
-
-            query = query.Where(s => s.FullName.ToLower().Contains(searchString)
-                                     || s.Email.ToLower().Contains(searchString)
-                                     || (s.Description != null && s.Description.ToLower().Contains(searchString))
-                                     || (s.Group != null && s.Group.GroupName.ToLower().Contains(searchString)));
+            var s = searchString.Trim().ToLower();
+            query = query.Where(u => u.FullName.ToLower().Contains(s) || 
+                                     u.Email.ToLower().Contains(s) || 
+                                     (u.Group != null && u.Group.GroupName.ToLower().Contains(s)));
         }
 
-        var students = await query.ToListAsync();
-        var allGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
         var model = new ManageStudentsViewModel
         {
-            Students = students,
-            AllGroups = allGroups
+            Students = await query.ToListAsync(),
+            AllGroups = await _context.Groups.AsNoTracking().OrderBy(g => g.GroupName).ToListAsync()
         };
 
         ViewData["SearchString"] = searchString;
@@ -68,8 +62,7 @@ public class AdminController : Controller
     [HttpGet]
     public async Task<IActionResult> CreateStudent()
     {
-        ViewBag.Groups = new SelectList(await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(), "Id",
-            "GroupName");
+        await PrepareStudentViewBag();
         return View("Students/CreateStudent");
     }
 
@@ -94,12 +87,10 @@ public class AdminController : Controller
                 await _userManager.AddToRoleAsync(student, "Student");
                 return RedirectToAction(nameof(ManageStudents));
             }
-
             foreach (var error in result.Errors) ModelState.AddModelError("", error.Description);
         }
 
-        ViewBag.Groups = new SelectList(await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(), "Id",
-            "GroupName", model.GroupId);
+        await PrepareStudentViewBag(model.GroupId);
         return View("Students/CreateStudent", model);
     }
 
@@ -118,8 +109,7 @@ public class AdminController : Controller
             GroupId = student.GroupId
         };
 
-        ViewBag.Groups = new SelectList(await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(), "Id",
-            "GroupName", student.GroupId);
+        await PrepareStudentViewBag(student.GroupId);
         return View("Students/EditStudent", model);
     }
 
@@ -133,7 +123,7 @@ public class AdminController : Controller
             {
                 student.FullName = model.FullName;
                 student.Email = model.Email;
-                student.UserName = model.Email;
+                student.UserName = model.Email; // Обновляем и username
                 student.Description = model.Description;
                 student.GroupId = model.GroupId;
 
@@ -143,105 +133,173 @@ public class AdminController : Controller
                     await _context.SaveChangesAsync();
                     return RedirectToAction(nameof(ManageStudents));
                 }
-
                 foreach (var error in result.Errors) ModelState.AddModelError("", error.Description);
             }
         }
-
-        ViewBag.Groups = new SelectList(await _context.Groups.OrderBy(g => g.GroupName).ToListAsync(), "Id",
-            "GroupName", model.GroupId);
+        await PrepareStudentViewBag(model.GroupId);
         return View("Students/EditStudent", model);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> AddStudentToGroup(int groupId)
-    {
-        var group = await _context.Groups.FindAsync(groupId);
-        if (group == null) return NotFound();
-
-        var studentRoleId = await _context.Roles
-            .Where(r => r.Name == "Student")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
-
-        var freeStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-            .Where(s => s.Group == null)
-            .ToListAsync();
-
-        var model = new AddStudentToGroupViewModel
-        {
-            GroupId = group.Id,
-            GroupName = group.GroupName,
-            AvailableStudents = freeStudents
-        };
-
-        return View("Students/AddStudentToGroup", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> AddStudentToGroup(AddStudentToGroupViewModel model)
-    {
-        var student = await _context.Users.FirstOrDefaultAsync(s => s.Id == model.SelectedStudentId);
-        if (student != null)
-        {
-            var group = await _context.Groups.FindAsync(model.GroupId);
-            if (group != null)
-            {
-                student.Group = group;
-                await _context.SaveChangesAsync();
-            }
-        }
-
-        return RedirectToAction(nameof(ManageGroups));
     }
 
     [HttpPost]
     public async Task<IActionResult> UpdateStudentGroup(string studentId, int? selectedGroupId)
     {
-        var student = await _context.Users.FirstOrDefaultAsync(u => u.Id == studentId);
-
+        var student = await _context.Users.FindAsync(studentId);
         if (student != null)
         {
             student.GroupId = selectedGroupId;
             await _context.SaveChangesAsync();
         }
-
         return RedirectToAction(nameof(ManageStudents));
     }
 
-    public async Task<IActionResult> ManageTeachers(string searchString)
+    public async Task<IActionResult> ManageGroups(string searchString)
     {
-        var teacherRoleId = await _context.Roles
-            .Where(r => r.Name == "Teacher")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
-
-        var query = _context.Users
-            .Include(u => u.AssignedSubjects)
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == teacherRoleId && ur.UserId == u.Id))
-            .AsQueryable();
+        var groupsQuery = _context.Groups.AsNoTracking().Include(g => g.Students).AsQueryable();
 
         if (!string.IsNullOrEmpty(searchString))
         {
             searchString = searchString.Trim().ToLower();
-
-            query = query.Where(t => t.FullName.ToLower().Contains(searchString)
-                                     || t.Email.ToLower().Contains(searchString)
-                                     || (t.Description != null && t.Description.ToLower().Contains(searchString)));
+            groupsQuery = groupsQuery.Where(g => g.GroupName.ToLower().Contains(searchString));
         }
 
-        var allSubjects = await _context.Subjects.ToListAsync();
-        var teachers = await query.ToListAsync();
+        var model = new ManageGroupsViewModel
+        {
+            Groups = await groupsQuery.ToListAsync(),
+            AllStudents = await GetUsersByRoleAsync("Student")
+        };
+
+        ViewData["SearchString"] = searchString;
+        return View("Groups/ManageGroups", model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CreateGroup()
+    {
+        var model = new CreateGroupViewModel { AvailableStudents = await GetUsersByRoleAsync("Student") };
+        return View("Groups/CreateGroup", model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateGroup(CreateGroupViewModel model)
+    {
+        if (ModelState.IsValid)
+        {
+            if (await _context.Groups.AnyAsync(g => g.GroupName == model.GroupName))
+            {
+                ModelState.AddModelError("GroupName", "Группа с таким названием уже существует.");
+                model.AvailableStudents = await GetUsersByRoleAsync("Student");
+                return View("Groups/CreateGroup", model);
+            }
+
+            var group = new Group { GroupName = model.GroupName };
+            _context.Groups.Add(group);
+            await _context.SaveChangesAsync();
+
+            await AssignStudentsToGroupAsync(group.Id, model.SelectedStudentIds);
+            return RedirectToAction(nameof(ManageGroups));
+        }
+
+        model.AvailableStudents = await GetUsersByRoleAsync("Student");
+        return View("Groups/CreateGroup", model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditGroup(int id)
+    {
+        var group = await _context.Groups.Include(g => g.Students).FirstOrDefaultAsync(g => g.Id == id);
+        if (group == null) return NotFound();
+
+        var model = new EditGroupViewModel
+        {
+            Id = group.Id,
+            GroupName = group.GroupName,
+            AvailableStudents = await GetUsersByRoleAsync("Student"),
+            SelectedStudentIds = group.Students.Select(s => s.Id).ToList()
+        };
+        return View("Groups/EditGroup", model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditGroup(EditGroupViewModel model)
+    {
+        if (ModelState.IsValid)
+        {
+            var group = await _context.Groups.Include(g => g.Students).FirstOrDefaultAsync(g => g.Id == model.Id);
+            if (group != null)
+            {
+                group.GroupName = model.GroupName;
+                
+                // Сброс группы у тех, кого убрали из списка
+                var idsToKeep = model.SelectedStudentIds ?? new List<string>();
+                foreach (var student in group.Students.Where(s => !idsToKeep.Contains(s.Id)))
+                {
+                    student.GroupId = null;
+                }
+
+                await AssignStudentsToGroupAsync(group.Id, idsToKeep); // Назначение новых
+                
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(ManageGroups));
+            }
+        }
+        model.AvailableStudents = await GetUsersByRoleAsync("Student");
+        return View("Groups/EditGroup", model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateGroupStudents(int groupId, List<string> selectedStudentIds)
+    {
+        // Сброс текущих
+        var currentStudents = await _context.Users.Where(u => u.GroupId == groupId).ToListAsync();
+        currentStudents.ForEach(s => s.GroupId = null);
+
+        // Назначение новых
+        await AssignStudentsToGroupAsync(groupId, selectedStudentIds);
+        
+        await _context.SaveChangesAsync();
+        return RedirectToAction(nameof(ManageGroups));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteGroup(int id)
+    {
+        var group = await _context.Groups.Include(g => g.Students).FirstOrDefaultAsync(g => g.Id == id);
+        if (group != null)
+        {
+            // EF Core SetNull behavior handles generic relationships, but explicit nulling is safer for logic
+            if (group.Students != null)
+            {
+                foreach (var s in group.Students) s.GroupId = null;
+            }
+            _context.Groups.Remove(group);
+            await _context.SaveChangesAsync();
+        }
+        return RedirectToAction(nameof(ManageGroups));
+    }
+
+    // ============================================================
+    // УПРАВЛЕНИЕ ПРЕПОДАВАТЕЛЯМИ
+    // ============================================================
+
+    public async Task<IActionResult> ManageTeachers(string searchString)
+    {
+        var roleId = await GetRoleIdAsync("Teacher");
+        var query = _context.Users
+            .AsNoTracking()
+            .Include(u => u.AssignedSubjects)
+            .Where(u => _context.Set<IdentityUserRole<string>>().Any(ur => ur.RoleId == roleId && ur.UserId == u.Id));
+
+        if (!string.IsNullOrEmpty(searchString))
+        {
+            searchString = searchString.Trim().ToLower();
+            query = query.Where(t => t.FullName.ToLower().Contains(searchString) || t.Email.ToLower().Contains(searchString));
+        }
 
         var model = new ManageTeachersViewModel
         {
-            Teachers = teachers,
-            AllSubjects = allSubjects
+            Teachers = await query.ToListAsync(),
+            AllSubjects = await _context.Subjects.AsNoTracking().ToListAsync()
         };
-
         ViewData["SearchString"] = searchString;
         return View("Teachers/ManageTeachers", model);
     }
@@ -249,7 +307,7 @@ public class AdminController : Controller
     [HttpGet]
     public async Task<IActionResult> CreateTeacher()
     {
-        ViewBag.Subjects = await _context.Subjects.OrderBy(s => s.Title).ToListAsync();
+        ViewBag.Subjects = await _context.Subjects.AsNoTracking().OrderBy(s => s.Title).ToListAsync();
         return View("Teachers/CreateTeacher");
     }
 
@@ -271,33 +329,19 @@ public class AdminController : Controller
             if (result.Succeeded)
             {
                 await _userManager.AddToRoleAsync(teacher, "Teacher");
-
-                if (model.SelectedSubjectIds != null && model.SelectedSubjectIds.Any())
-                {
-                    var subjects = await _context.Subjects
-                        .Where(s => model.SelectedSubjectIds.Contains(s.Id))
-                        .ToListAsync();
-                    teacher.AssignedSubjects = new List<Subject>(subjects);
-                    await _context.SaveChangesAsync();
-                }
-
+                await UpdateTeacherSubjectsAsync(teacher, model.SelectedSubjectIds);
                 return RedirectToAction(nameof(ManageTeachers));
             }
-
             foreach (var error in result.Errors) ModelState.AddModelError("", error.Description);
         }
-
-        ViewBag.Subjects = await _context.Subjects.OrderBy(s => s.Title).ToListAsync();
+        ViewBag.Subjects = await _context.Subjects.AsNoTracking().OrderBy(s => s.Title).ToListAsync();
         return View("Teachers/CreateTeacher", model);
     }
 
     [HttpGet]
     public async Task<IActionResult> EditTeacher(string id)
     {
-        var teacher = await _context.Users
-            .Include(u => u.AssignedSubjects)
-            .FirstOrDefaultAsync(u => u.Id == id);
-
+        var teacher = await _context.Users.Include(u => u.AssignedSubjects).FirstOrDefaultAsync(u => u.Id == id);
         if (teacher == null) return NotFound();
 
         var model = new EditTeacherViewModel
@@ -308,8 +352,7 @@ public class AdminController : Controller
             Description = teacher.Description,
             SelectedSubjectIds = teacher.AssignedSubjects?.Select(s => s.Id).ToList() ?? new List<int>()
         };
-
-        ViewBag.Subjects = await _context.Subjects.OrderBy(s => s.Title).ToListAsync();
+        ViewBag.Subjects = await _context.Subjects.AsNoTracking().OrderBy(s => s.Title).ToListAsync();
         return View("Teachers/EditTeacher", model);
     }
 
@@ -318,10 +361,7 @@ public class AdminController : Controller
     {
         if (ModelState.IsValid)
         {
-            var teacher = await _context.Users
-                .Include(u => u.AssignedSubjects)
-                .FirstOrDefaultAsync(u => u.Id == model.Id);
-
+            var teacher = await _context.Users.Include(u => u.AssignedSubjects).FirstOrDefaultAsync(u => u.Id == model.Id);
             if (teacher != null)
             {
                 teacher.FullName = model.FullName;
@@ -329,399 +369,62 @@ public class AdminController : Controller
                 teacher.UserName = model.Email;
                 teacher.Description = model.Description;
 
-                teacher.AssignedSubjects.Clear();
-                if (model.SelectedSubjectIds != null && model.SelectedSubjectIds.Any())
-                {
-                    var subjects = await _context.Subjects
-                        .Where(s => model.SelectedSubjectIds.Contains(s.Id))
-                        .ToListAsync();
-                    teacher.AssignedSubjects.AddRange(subjects);
-                }
-
-                var result = await _userManager.UpdateAsync(teacher);
-                if (result.Succeeded)
-                {
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction(nameof(ManageTeachers));
-                }
-
-                foreach (var error in result.Errors) ModelState.AddModelError("", error.Description);
+                await UpdateTeacherSubjectsAsync(teacher, model.SelectedSubjectIds);
+                
+                await _userManager.UpdateAsync(teacher);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(ManageTeachers));
             }
         }
-
-        ViewBag.Subjects = await _context.Subjects.OrderBy(s => s.Title).ToListAsync();
+        ViewBag.Subjects = await _context.Subjects.AsNoTracking().OrderBy(s => s.Title).ToListAsync();
         return View("Teachers/EditTeacher", model);
     }
 
     [HttpPost]
     public async Task<IActionResult> UpdateTeacherSubjects(string teacherId, List<int> selectedSubjectIds)
     {
-        var teacher = await _context.Users
-            .Include(u => u.AssignedSubjects)
-            .FirstOrDefaultAsync(u => u.Id == teacherId);
-
+        var teacher = await _context.Users.Include(u => u.AssignedSubjects).FirstOrDefaultAsync(u => u.Id == teacherId);
         if (teacher != null)
         {
-            teacher.AssignedSubjects.Clear();
-
-            if (selectedSubjectIds != null && selectedSubjectIds.Any())
-            {
-                var subjectsToAdd = await _context.Subjects
-                    .Where(s => selectedSubjectIds.Contains(s.Id))
-                    .ToListAsync();
-
-                teacher.AssignedSubjects.AddRange(subjectsToAdd);
-            }
-
+            await UpdateTeacherSubjectsAsync(teacher, selectedSubjectIds);
             await _context.SaveChangesAsync();
         }
-
         return RedirectToAction(nameof(ManageTeachers));
     }
 
-    [HttpPost]
-    public async Task<IActionResult> DeleteUser(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user != null)
-        {
-            var isStudent = await _userManager.IsInRoleAsync(user, "Student");
-            var isTeacher = await _userManager.IsInRoleAsync(user, "Teacher");
-
-            await _userManager.DeleteAsync(user);
-            if (isStudent)
-            {
-                return RedirectToAction(nameof(ManageStudents));
-            }
-
-            if (isTeacher)
-            {
-                return RedirectToAction(nameof(ManageTeachers));
-            }
-        }
-
-        return RedirectToAction(nameof(Index));
-    }
-
-    public async Task<IActionResult> ManageGroups(string searchString)
-    {
-        var groupsQuery = _context.Groups
-            .Include(g => g.Students)
-            .AsQueryable();
-
-        if (!string.IsNullOrEmpty(searchString))
-        {
-            var normalizedSearch = searchString.Trim().ToLower();
-            groupsQuery = groupsQuery.Where(g => g.GroupName.ToLower().Contains(normalizedSearch));
-        }
-
-        var studentRoleId = await _context.Roles
-            .Where(r => r.Name == "Student")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
-
-        var allStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-            .OrderBy(s => s.FullName)
-            .ToListAsync();
-
-        var model = new ManageGroupsViewModel
-        {
-            Groups = await groupsQuery.ToListAsync(),
-            AllStudents = allStudents
-        };
-
-        ViewData["SearchString"] = searchString;
-        return View("Groups/ManageGroups", model);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> CreateGroup()
-    {
-        var studentRoleId = await _context.Roles
-            .Where(r => r.Name == "Student")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
-
-        var allStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-            .OrderBy(s => s.FullName)
-            .ToListAsync();
-
-        var model = new CreateGroupViewModel
-        {
-            AvailableStudents = allStudents
-        };
-
-        return View("Groups/CreateGroup", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateGroup(CreateGroupViewModel model)
-    {
-        if (ModelState.IsValid)
-        {
-            if (await _context.Groups.AnyAsync(g => g.GroupName == model.GroupName))
-            {
-                ModelState.AddModelError("GroupName", "Группа с таким названием уже существует.");
-                var studentRoleId = await _context.Roles.Where(r => r.Name == "Student").Select(r => r.Id)
-                    .FirstOrDefaultAsync();
-                model.AvailableStudents = await _context.Users
-                    .Where(u => _context.Set<IdentityUserRole<string>>()
-                        .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-                    .OrderBy(s => s.FullName).ToListAsync();
-                return View("Groups/CreateGroup", model);
-            }
-
-            var group = new Group { GroupName = model.GroupName };
-            _context.Groups.Add(group);
-            await _context.SaveChangesAsync();
-
-            if (model.SelectedStudentIds != null && model.SelectedStudentIds.Any())
-            {
-                var studentsToAdd = await _context.Users
-                    .Where(u => model.SelectedStudentIds.Contains(u.Id))
-                    .ToListAsync();
-
-                foreach (var student in studentsToAdd)
-                {
-                    student.GroupId = group.Id;
-                }
-
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(ManageGroups));
-        }
-
-        var roleId = await _context.Roles.Where(r => r.Name == "Student").Select(r => r.Id).FirstOrDefaultAsync();
-        model.AvailableStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == roleId && ur.UserId == u.Id))
-            .OrderBy(s => s.FullName).ToListAsync();
-        return View("Groups/CreateGroup", model);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> EditGroup(int id)
-    {
-        var group = await _context.Groups
-            .Include(g => g.Students)
-            .FirstOrDefaultAsync(g => g.Id == id);
-
-        if (group == null) return NotFound();
-
-        var studentRoleId = await _context.Roles
-            .Where(r => r.Name == "Student")
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync();
-
-        var allStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == studentRoleId && ur.UserId == u.Id))
-            .OrderBy(s => s.FullName)
-            .ToListAsync();
-
-        var model = new EditGroupViewModel
-        {
-            Id = group.Id,
-            GroupName = group.GroupName,
-            AvailableStudents = allStudents,
-            SelectedStudentIds = group.Students.Select(s => s.Id).ToList()
-        };
-
-        return View("Groups/EditGroup", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> EditGroup(EditGroupViewModel model)
-    {
-        if (ModelState.IsValid)
-        {
-            var group = await _context.Groups
-                .Include(g => g.Students)
-                .FirstOrDefaultAsync(g => g.Id == model.Id);
-
-            if (group != null)
-            {
-                group.GroupName = model.GroupName;
-                var currentStudentIds = group.Students.Select(s => s.Id).ToList();
-                var newSelectedIds = model.SelectedStudentIds ?? new List<string>();
-
-                foreach (var student in group.Students)
-                {
-                    if (!newSelectedIds.Contains(student.Id))
-                    {
-                        student.GroupId = null;
-                    }
-                }
-
-                if (newSelectedIds.Any())
-                {
-                    var studentsToAdd = await _context.Users
-                        .Where(u => newSelectedIds.Contains(u.Id) && u.GroupId != group.Id)
-                        .ToListAsync();
-
-                    foreach (var student in studentsToAdd)
-                    {
-                        student.GroupId = group.Id;
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(ManageGroups));
-            }
-        }
-
-        var roleId = await _context.Roles.Where(r => r.Name == "Student").Select(r => r.Id).FirstOrDefaultAsync();
-        model.AvailableStudents = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == roleId && ur.UserId == u.Id))
-            .OrderBy(s => s.FullName).ToListAsync();
-        return View("Groups/EditGroup", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> UpdateGroupStudents(int groupId, List<string> selectedStudentIds)
-    {
-        var currentGroupStudents = await _context.Users
-            .Where(u => u.GroupId == groupId)
-            .ToListAsync();
-
-        foreach (var student in currentGroupStudents)
-        {
-            student.GroupId = null;
-        }
-
-        if (selectedStudentIds != null && selectedStudentIds.Any())
-        {
-            var studentsToAdd = await _context.Users
-                .Where(u => selectedStudentIds.Contains(u.Id))
-                .ToListAsync();
-
-            foreach (var student in studentsToAdd)
-            {
-                student.GroupId = groupId;
-            }
-        }
-
-        await _context.SaveChangesAsync();
-        return RedirectToAction(nameof(ManageGroups));
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> DeleteGroup(int id)
-    {
-        var group = await _context.Groups
-            .Include(g => g.Students)
-            .FirstOrDefaultAsync(g => g.Id == id);
-
-        if (group != null)
-        {
-            if (group.Students != null)
-            {
-                foreach (var student in group.Students)
-                {
-                    student.GroupId = null;
-                }
-            }
-
-            _context.Groups.Remove(group);
-            await _context.SaveChangesAsync();
-        }
-
-        return RedirectToAction(nameof(ManageGroups));
-    }
+    // ============================================================
+    // УПРАВЛЕНИЕ ПРЕДМЕТАМИ
+    // ============================================================
 
     public async Task<IActionResult> ManageSubjects(string searchString)
     {
-        var subjectsQuery = _context.Subjects
+        var query = _context.Subjects
+            .AsNoTracking()
             .Include(s => s.Teachers)
             .Include(s => s.EnrolledGroups)
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(searchString))
         {
-            var normalizedSearch = searchString.Trim().ToLower();
-            subjectsQuery = subjectsQuery.Where(s =>
-                s.Title.ToLower().Contains(normalizedSearch)
-                || (s.Description != null && s.Description.ToLower().Contains(normalizedSearch))
-            );
+            var s = searchString.Trim().ToLower();
+            query = query.Where(sub => sub.Title.ToLower().Contains(s) || (sub.Description != null && sub.Description.ToLower().Contains(s)));
         }
-
-        var teacherRoleId =
-            await _context.Roles.Where(r => r.Name == "Teacher").Select(r => r.Id).FirstOrDefaultAsync();
-        var allTeachers = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == teacherRoleId && ur.UserId == u.Id))
-            .ToListAsync();
-
-        var allGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
 
         var model = new ManageSubjectsViewModel
         {
-            Subjects = await subjectsQuery.ToListAsync(),
-            AllTeachers = allTeachers,
-            AllGroups = allGroups
+            Subjects = await query.ToListAsync(),
+            AllTeachers = await GetUsersByRoleAsync("Teacher"),
+            AllGroups = await _context.Groups.AsNoTracking().OrderBy(g => g.GroupName).ToListAsync()
         };
-
         ViewData["SearchString"] = searchString;
         return View("Subject/ManageSubjects", model);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ChangeSubjectStatus(int subjectId, ContentStatus newStatus)
-    {
-        var subject = await _context.Subjects
-            .Include(s => s.Tests)
-            .ThenInclude(t => t.Questions)
-            .FirstOrDefaultAsync(s => s.Id == subjectId);
-
-        if (subject != null)
-        {
-            if (newStatus != ContentStatus.Draft)
-            {
-                bool hasQuestions = subject.Tests != null &&
-                                    subject.Tests.Any(t => t.Questions != null && t.Questions.Any());
-
-                if (!hasQuestions)
-                {
-                    TempData["ErrorMessage"] = "Нельзя опубликовать предмет без вопросов в тестах.";
-                    return RedirectToAction(nameof(ManageSubjects));
-                }
-            }
-
-            subject.Status = newStatus;
-            await _context.SaveChangesAsync();
-        }
-
-        return RedirectToAction(nameof(ManageSubjects));
     }
 
     [HttpGet]
     public async Task<IActionResult> CreateSubject()
     {
-        var teacherRoleId =
-            await _context.Roles.Where(r => r.Name == "Teacher").Select(r => r.Id).FirstOrDefaultAsync();
-
-        var allTeachers = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == teacherRoleId && ur.UserId == u.Id))
-            .OrderBy(t => t.FullName)
-            .ToListAsync();
-
-        var allGroups = await _context.Groups
-            .OrderBy(g => g.GroupName)
-            .ToListAsync();
-
-        var model = new CreateSubjectViewModel
-        {
-            AvailableTeachers = allTeachers,
-            AvailableGroups = allGroups
-        };
-
+        var model = new CreateSubjectViewModel();
+        await PrepareSubjectViewModelAsync(model);
         return View("Subject/CreateSubject", model);
     }
 
@@ -733,34 +436,18 @@ public class AdminController : Controller
             var subject = new Subject
             {
                 Title = model.Title,
-                Description = model.Description,
-                Status = ContentStatus.Draft
+                Description = model.Description ?? string.Empty,
+                Status = ContentStatus.Hidden
             };
 
-            if (model.SelectedTeacherIds.Any())
-            {
-                var teachers = await _context.Users.Where(u => model.SelectedTeacherIds.Contains(u.Id)).ToListAsync();
-                subject.Teachers = new List<User>(teachers);
-            }
-
-            if (model.SelectedGroupIds.Any())
-            {
-                var groups = await _context.Groups.Where(g => model.SelectedGroupIds.Contains(g.Id)).ToListAsync();
-                subject.EnrolledGroups = new List<Group>(groups);
-            }
-
+            await UpdateSubjectRelationsAsync(subject, model.SelectedTeacherIds, model.SelectedGroupIds);
+            
             _context.Subjects.Add(subject);
             await _context.SaveChangesAsync();
-
             return RedirectToAction(nameof(ManageSubjects));
         }
 
-        var roleId = await _context.Roles.Where(r => r.Name == "Teacher").Select(r => r.Id).FirstOrDefaultAsync();
-        model.AvailableTeachers = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>().Any(ur => ur.RoleId == roleId && ur.UserId == u.Id))
-            .OrderBy(t => t.FullName).ToListAsync();
-        model.AvailableGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
-
+        await PrepareSubjectViewModelAsync(model);
         return View("Subject/CreateSubject", model);
     }
 
@@ -774,29 +461,17 @@ public class AdminController : Controller
 
         if (subject == null) return NotFound();
 
-        var teacherRoleId =
-            await _context.Roles.Where(r => r.Name == "Teacher").Select(r => r.Id).FirstOrDefaultAsync();
-        var allTeachers = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>()
-                .Any(ur => ur.RoleId == teacherRoleId && ur.UserId == u.Id))
-            .OrderBy(t => t.FullName)
-            .ToListAsync();
-
-        var allGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
-
         var model = new EditSubjectViewModel
         {
             Id = subject.Id,
             Title = subject.Title,
             Description = subject.Description,
             Status = subject.Status,
-
-            AvailableTeachers = allTeachers,
             SelectedTeacherIds = subject.Teachers.Select(t => t.Id).ToList(),
-
-            AvailableGroups = allGroups,
             SelectedGroupIds = subject.EnrolledGroups.Select(g => g.Id).ToList()
         };
+        
+        await PrepareSubjectViewModelAsync(model);
         return View("Subject/EditSubject", model);
     }
 
@@ -808,93 +483,97 @@ public class AdminController : Controller
             var subject = await _context.Subjects
                 .Include(s => s.Teachers)
                 .Include(s => s.EnrolledGroups)
+                .Include(s => s.Lectures)
+                .Include(s => s.Tests).ThenInclude(t => t.Questions)
                 .FirstOrDefaultAsync(s => s.Id == model.Id);
 
             if (subject != null)
             {
+                // Проверка только при публикации
+                if (model.Status == ContentStatus.Published)
+                {
+                    var errors = ValidateSubjectForPublishing(subject);
+                    if (errors.Any())
+                    {
+                        foreach(var err in errors) ModelState.AddModelError("Status", $"Нельзя опубликовать: {err}");
+                        
+                        await PrepareSubjectViewModelAsync(model);
+                        return View("Subject/EditSubject", model);
+                    }
+                }
+
                 subject.Title = model.Title;
                 subject.Description = model.Description;
                 subject.Status = model.Status;
 
-                subject.Teachers.Clear();
-                if (model.SelectedTeacherIds != null && model.SelectedTeacherIds.Any())
-                {
-                    var teachersToAdd = await _context.Users.Where(u => model.SelectedTeacherIds.Contains(u.Id))
-                        .ToListAsync();
-                    subject.Teachers.AddRange(teachersToAdd);
-                }
-
-                subject.EnrolledGroups.Clear();
-                if (model.SelectedGroupIds != null && model.SelectedGroupIds.Any())
-                {
-                    var groupsToAdd = await _context.Groups.Where(g => model.SelectedGroupIds.Contains(g.Id))
-                        .ToListAsync();
-                    subject.EnrolledGroups.AddRange(groupsToAdd);
-                }
-
+                await UpdateSubjectRelationsAsync(subject, model.SelectedTeacherIds, model.SelectedGroupIds);
                 await _context.SaveChangesAsync();
+                
                 return RedirectToAction(nameof(ManageSubjects));
             }
         }
-
-        var roleId = await _context.Roles.Where(r => r.Name == "Teacher").Select(r => r.Id).FirstOrDefaultAsync();
-        model.AvailableTeachers = await _context.Users
-            .Where(u => _context.Set<IdentityUserRole<string>>().Any(ur => ur.RoleId == roleId && ur.UserId == u.Id))
-            .OrderBy(t => t.FullName).ToListAsync();
-        model.AvailableGroups = await _context.Groups.OrderBy(g => g.GroupName).ToListAsync();
-
+        await PrepareSubjectViewModelAsync(model);
         return View("Subject/EditSubject", model);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ChangeSubjectStatus(int subjectId, ContentStatus newStatus)
+    {
+        var subject = await _context.Subjects
+            .Include(s => s.Lectures)
+            .Include(s => s.Tests).ThenInclude(t => t.Questions)
+            .FirstOrDefaultAsync(s => s.Id == subjectId);
+
+        if (subject != null)
+        {
+            if (newStatus == ContentStatus.Published)
+            {
+                var errors = ValidateSubjectForPublishing(subject);
+                if (errors.Any())
+                {
+                    TempData["SubjectStatusError"] = $"Ошибка публикации предмета <b>«{subject.Title}»</b>: {string.Join(", ", errors)}.";
+                    return RedirectToAction(nameof(ManageSubjects));
+                }
+            }
+
+            subject.Status = newStatus;
+            await _context.SaveChangesAsync();
+            // Optional: TempData["SubjectStatusSuccess"] = ...
+        }
+        return RedirectToAction(nameof(ManageSubjects));
     }
 
     [HttpPost]
     public async Task<IActionResult> UpdateSubjectTeachers(int subjectId, List<string> selectedTeacherIds)
     {
-        var subject = await _context.Subjects
-            .Include(s => s.Teachers)
-            .FirstOrDefaultAsync(s => s.Id == subjectId);
-
+        var subject = await _context.Subjects.Include(s => s.Teachers).FirstOrDefaultAsync(s => s.Id == subjectId);
         if (subject != null)
         {
             subject.Teachers.Clear();
-
-            if (selectedTeacherIds != null && selectedTeacherIds.Any())
+            if (selectedTeacherIds?.Any() == true)
             {
-                var newTeachers = await _context.Users
-                    .Where(u => selectedTeacherIds.Contains(u.Id))
-                    .ToListAsync();
-
-                subject.Teachers.AddRange(newTeachers);
+                var teachers = await _context.Users.Where(u => selectedTeacherIds.Contains(u.Id)).ToListAsync();
+                subject.Teachers.AddRange(teachers);
             }
-
             await _context.SaveChangesAsync();
         }
-
         return RedirectToAction(nameof(ManageSubjects));
     }
 
     [HttpPost]
     public async Task<IActionResult> UpdateSubjectGroups(int subjectId, List<int> selectedGroupIds)
     {
-        var subject = await _context.Subjects
-            .Include(s => s.EnrolledGroups)
-            .FirstOrDefaultAsync(s => s.Id == subjectId);
-
+        var subject = await _context.Subjects.Include(s => s.EnrolledGroups).FirstOrDefaultAsync(s => s.Id == subjectId);
         if (subject != null)
         {
             subject.EnrolledGroups.Clear();
-
-            if (selectedGroupIds != null && selectedGroupIds.Any())
+            if (selectedGroupIds?.Any() == true)
             {
-                var groupsToAdd = await _context.Groups
-                    .Where(g => selectedGroupIds.Contains(g.Id))
-                    .ToListAsync();
-
-                subject.EnrolledGroups.AddRange(groupsToAdd);
+                var groups = await _context.Groups.Where(g => selectedGroupIds.Contains(g.Id)).ToListAsync();
+                subject.EnrolledGroups.AddRange(groups);
             }
-
             await _context.SaveChangesAsync();
         }
-
         return RedirectToAction(nameof(ManageSubjects));
     }
 
@@ -907,7 +586,109 @@ public class AdminController : Controller
             _context.Subjects.Remove(subject);
             await _context.SaveChangesAsync();
         }
-
         return RedirectToAction(nameof(ManageSubjects));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user != null)
+        {
+            var isStudent = await _userManager.IsInRoleAsync(user, "Student");
+            var isTeacher = await _userManager.IsInRoleAsync(user, "Teacher");
+            await _userManager.DeleteAsync(user);
+            
+            if (isStudent) return RedirectToAction(nameof(ManageStudents));
+            if (isTeacher) return RedirectToAction(nameof(ManageTeachers));
+        }
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ============================================================
+    // PRIVATE HELPERS
+    // ============================================================
+
+    private async Task<string?> GetRoleIdAsync(string roleName)
+    {
+        return await _context.Roles
+            .Where(r => r.Name == roleName)
+            .Select(r => r.Id)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<List<User>> GetUsersByRoleAsync(string roleName)
+    {
+        var roleId = await GetRoleIdAsync(roleName);
+        return await _context.Users
+            .AsNoTracking()
+            .Where(u => _context.Set<IdentityUserRole<string>>().Any(ur => ur.RoleId == roleId && ur.UserId == u.Id))
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+    }
+
+    private async Task PrepareStudentViewBag(int? selectedGroupId = null)
+    {
+        ViewBag.Groups = new SelectList(
+            await _context.Groups.AsNoTracking().OrderBy(g => g.GroupName).ToListAsync(), 
+            "Id", "GroupName", selectedGroupId);
+    }
+
+    private async Task AssignStudentsToGroupAsync(int groupId, List<string>? studentIds)
+    {
+        if (studentIds != null && studentIds.Any())
+        {
+            var students = await _context.Users.Where(u => studentIds.Contains(u.Id)).ToListAsync();
+            foreach (var s in students) s.GroupId = groupId;
+        }
+    }
+
+    private async Task UpdateTeacherSubjectsAsync(User teacher, List<int>? subjectIds)
+    {
+        teacher.AssignedSubjects ??= new List<Subject>();
+        teacher.AssignedSubjects.Clear();
+        if (subjectIds != null && subjectIds.Any())
+        {
+            var subjects = await _context.Subjects.Where(s => subjectIds.Contains(s.Id)).ToListAsync();
+            teacher.AssignedSubjects.AddRange(subjects);
+        }
+    }
+
+    private async Task PrepareSubjectViewModelAsync(dynamic model)
+    {
+        model.AvailableTeachers = await GetUsersByRoleAsync("Teacher");
+        model.AvailableGroups = await _context.Groups.AsNoTracking().OrderBy(g => g.GroupName).ToListAsync();
+    }
+
+    private async Task UpdateSubjectRelationsAsync(Subject subject, List<string>? teacherIds, List<int>? groupIds)
+    {
+        subject.Teachers ??= new List<User>();
+        subject.Teachers.Clear();
+        if (teacherIds?.Any() == true)
+        {
+            var teachers = await _context.Users.Where(u => teacherIds.Contains(u.Id)).ToListAsync();
+            subject.Teachers.AddRange(teachers);
+        }
+
+        subject.EnrolledGroups ??= new List<Group>();
+        subject.EnrolledGroups.Clear();
+        if (groupIds?.Any() == true)
+        {
+            var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
+            subject.EnrolledGroups.AddRange(groups);
+        }
+    }
+
+    private List<string> ValidateSubjectForPublishing(Subject subject)
+    {
+        var errors = new List<string>();
+        if (subject.Lectures == null || !subject.Lectures.Any()) errors.Add("нет ни одной лекции");
+        
+        if (subject.Tests == null || !subject.Tests.Any()) 
+            errors.Add("нет ни одного теста");
+        else if (!subject.Tests.Any(t => t.Questions != null && t.Questions.Any())) 
+            errors.Add("тесты не содержат вопросов");
+            
+        return errors;
     }
 }

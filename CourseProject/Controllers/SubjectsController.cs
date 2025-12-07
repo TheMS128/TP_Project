@@ -24,7 +24,6 @@ public class SubjectsController : Controller
         _appEnvironment = appEnvironment;
     }
 
-    // Вспомогательный метод для проверки прав учителя на просмотр
     private async Task<bool> IsTeacherOfSubject(int subjectId)
     {
         if (User.IsInRole("Admin")) return true;
@@ -36,7 +35,6 @@ public class SubjectsController : Controller
         }
         return false;
     }
-
     public async Task<IActionResult> Index()
     {
         var userId = _userManager.GetUserId(User);
@@ -46,6 +44,8 @@ public class SubjectsController : Controller
         {
             subjects = await _context.Subjects
                 .Include(s => s.Lectures)
+                .Include(s => s.Tests)           
+                .Include(s => s.EnrolledGroups)  
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -54,6 +54,8 @@ public class SubjectsController : Controller
             subjects = await _context.Subjects
                 .Where(s => s.Teachers.Any(t => t.Id == userId))
                 .Include(s => s.Lectures)
+                .Include(s => s.Tests)           
+                .Include(s => s.EnrolledGroups)  
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -63,6 +65,7 @@ public class SubjectsController : Controller
                 .Where(s => s.EnrolledGroups.Any(g => g.Students.Any(u => u.Id == userId)))
                 .Where(s => s.Status == ContentStatus.Published)
                 .Include(s => s.Lectures)
+                .Include(s => s.Tests)           
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -90,13 +93,11 @@ public class SubjectsController : Controller
 
             if (!hasAccess) return Forbid();
 
-            // Студенты видят только опубликованный контент
             subject.Lectures = subject.Lectures?.Where(l => l.Status == ContentStatus.Published).ToList();
             subject.Tests = subject.Tests?.Where(t => t.Status == ContentStatus.Published).ToList();
         }
 
         ViewBag.IsStudent = User.IsInRole("Student");
-        // Флаг для View, чтобы показать кнопку "Управление", которая ведет на CourseContentController
         ViewBag.CanEdit = await IsTeacherOfSubject(id);
 
         return View(subject);

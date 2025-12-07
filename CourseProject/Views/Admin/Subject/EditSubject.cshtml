@@ -4,187 +4,179 @@
     ViewData["Title"] = "Редактирование предмета";
 }
 
-<h2>Редактирование предмета</h2>
-<hr/>
-<div class="row">
-    <div class="col-md-5">
-        <form asp-action="EditSubject" method="post">
-            <input type="hidden" asp-for="Id"/>
-            <div asp-validation-summary="All" class="text-danger"></div>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageSubjects" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку предметов
+        </a>
+        <h2 class="fw-bold mt-2">Редактирование предмета</h2>
+    </div>
 
-            <div class="mb-3">
-                <label asp-for="Title" class="form-label">Название предмета</label>
-                <input asp-for="Title" class="form-control" required/>
-                <span asp-validation-for="Title" class="text-danger"></span>
-            </div>
+    <hr/>
+    <div class="row">
+        <div class="col-md-5">
+            <form asp-action="EditSubject" method="post">
+                <input type="hidden" asp-for="Id"/>
+                <div asp-validation-summary="All" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Описание</label>
-                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Статус публикации</label>
-
-                <input type="hidden" asp-for="Status" id="StatusInput"/>
-
-                <div class="dropdown">
-                    @{
-                        string statusBtnClass = Model.Status switch
-                        {
-                            ContentStatus.Published => "btn-success",
-                            ContentStatus.Hidden => "btn-secondary",
-                            _ => "btn-warning text-dark"
-                        };
-
-                        string statusIcon = Model.Status switch
-                        {
-                            ContentStatus.Published => "bi-check-circle",
-                            ContentStatus.Hidden => "bi-eye-slash",
-                            _ => "bi-pencil"
-                        };
-
-                        string statusText = Model.Status switch
-                        {
-                            ContentStatus.Published => "Опубликован",
-                            ContentStatus.Hidden => "Скрыт",
-                            _ => "Черновик"
-                        };
-                    }
-
-                    <button
-                        class="btn @statusBtnClass dropdown-toggle w-100 d-flex justify-content-between align-items-center"
-                        type="button"
-                        id="statusDropdownBtn"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
-                        <span><i class="bi @statusIcon me-2" id="statusIcon"></i> <span
-                                id="statusText">@statusText</span></span>
-                    </button>
-
-                    <ul class="dropdown-menu w-100">
-                        <li>
-                            <button class="dropdown-item d-flex align-items-center" type="button"
-                                    onclick="selectStatus('@ContentStatus.Draft', 'Черновик', 'btn-warning text-dark', 'bi-pencil')">
-                                <i class="bi bi-pencil me-2 text-warning"></i> Черновик
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item d-flex align-items-center" type="button"
-                                    onclick="selectStatus('@ContentStatus.Published', 'Опубликован', 'btn-success', 'bi-check-circle')">
-                                <i class="bi bi-check-circle me-2 text-success"></i> Опубликован
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item d-flex align-items-center" type="button"
-                                    onclick="selectStatus('@ContentStatus.Hidden', 'Скрыт', 'btn-secondary', 'bi-eye-slash')">
-                                <i class="bi bi-eye-slash me-2 text-secondary"></i> Скрыт
-                            </button>
-                        </li>
-                    </ul>
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label">Название предмета</label>
+                    <input asp-for="Title" class="form-control" required/>
+                    <span asp-validation-for="Title" class="text-danger"></span>
                 </div>
-                <span asp-validation-for="Status" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-bold">Преподаватели</label>
-                <div class="dropdown">
-                    @{
-                        int tCount = Model.SelectedTeacherIds.Count;
-                        string tBtnText = tCount > 0 ? $"Выбрано: {tCount} преподавателей" : "-- Выберите преподавателей --";
-                        string tBtnClass = tCount > 0 ? "text-primary fw-bold" : "";
-                    }
-                    <button
-                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center @tBtnClass"
-                        type="button" data-bs-toggle="dropdown" aria-expanded="false" id="teachersBtn">
-                        @tBtnText
-                    </button>
 
-                    <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
-                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
-                               onkeyup="filterList(this, '.teacher-list')">
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
 
-                        <div class="teacher-list" style="max-height: 200px; overflow-y: auto;">
-                            @foreach (var teacher in Model.AvailableTeachers)
-                            {
-                                var isChecked = Model.SelectedTeacherIds.Contains(teacher.Id);
-                                <div class="form-check list-item">
-                                    <input class="form-check-input item-checkbox" type="checkbox"
-                                           name="SelectedTeacherIds"
-                                           value="@teacher.Id"
-                                           id="t_@teacher.Id"
-                                           @(isChecked ? "checked" : "")
-                                           onchange="updateLabel('teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
-                                    <label class="form-check-label small" for="t_@teacher.Id">@teacher.FullName</label>
+                <div class="mb-3">
+                    <label class="form-label">Статус публикации</label>
+
+                    <input type="hidden" asp-for="Status" id="StatusInput"/>
+
+                    <div class="alert alert-info py-2 small mb-2">
+                        <i class="bi bi-exclamation-circle"></i> Для публикации предмета необходимо:
+                        <ul class="mb-0 ps-3">
+                            <li>Добавить минимум одну лекцию.</li>
+                            <li>Добавить минимум один тест (с вопросами).</li>
+                        </ul>
+                    </div>
+
+                    <div class="dropdown">
+                        @{
+                            string statusBtnClass = Model.Status == ContentStatus.Published ? "btn-success" : "btn-secondary";
+                            string statusIcon = Model.Status == ContentStatus.Published ? "bi-check-circle" : "bi-eye-slash";
+                            string statusText = Model.Status == ContentStatus.Published ? "Опубликован" : "Скрыт";
+                        }
+
+                        <button
+                            class="btn @statusBtnClass dropdown-toggle w-100 d-flex justify-content-between align-items-center"
+                            type="button"
+                            id="statusDropdownBtn"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            <span><i class="bi @statusIcon me-2" id="statusIcon"></i> <span id="statusText">@statusText</span></span>
+                        </button>
+
+                        <ul class="dropdown-menu w-100">
+                            <li>
+                                <button class="dropdown-item d-flex align-items-center" type="button"
+                                        onclick="selectStatus('@ContentStatus.Published', 'Опубликован', 'btn-success', 'bi-check-circle')">
+                                    <i class="bi bi-check-circle me-2 text-success"></i> Опубликован
+                                </button>
+                            </li>
+                            <li>
+                                <button class="dropdown-item d-flex align-items-center" type="button"
+                                        onclick="selectStatus('@ContentStatus.Hidden', 'Скрыт', 'btn-secondary', 'bi-eye-slash')">
+                                    <i class="bi bi-eye-slash me-2 text-secondary"></i> Скрыт
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <span asp-validation-for="Status" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Преподаватели</label>
+                    <div class="dropdown">
+                        @{
+                            int tCount = Model.SelectedTeacherIds.Count;
+                            string tBtnText = tCount > 0 ? $"Выбрано: {tCount} преподавателей" : "-- Выберите преподавателей --";
+                            string tBtnClass = tCount > 0 ? "text-primary fw-bold" : "";
+                        }
+                        <button
+                            class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center @tBtnClass"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false" id="teachersBtn">
+                            @tBtnText
+                        </button>
+
+                        <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
+                            <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                                   onkeyup="filterList(this, '.teacher-list')">
+
+                            <div class="teacher-list" style="max-height: 200px; overflow-y: auto;">
+                                @foreach (var teacher in Model.AvailableTeachers)
+                                {
+                                    var isChecked = Model.SelectedTeacherIds.Contains(teacher.Id);
+                                    <div class="form-check list-item">
+                                        <input class="form-check-input item-checkbox" type="checkbox"
+                                               name="SelectedTeacherIds"
+                                               value="@teacher.Id"
+                                               id="t_@teacher.Id"
+                                               @(isChecked ? "checked" : "")
+                                               onchange="updateLabel('teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
+                                        <label class="form-check-label small" for="t_@teacher.Id">@teacher.FullName</label>
+                                    </div>
+                                }
+                                <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
                                 </div>
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
                             </div>
-                        </div>
 
-                        <div class="border-top pt-2 mt-2">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="selectAllTeachers"
-                                       onchange="toggleAllVisible(this, '.teacher-list', 'teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
-                                <label class="form-check-label small text-muted" for="selectAllTeachers">Выбрать
-                                    все</label>
+                            <div class="border-top pt-2 mt-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllTeachers"
+                                           onchange="toggleAllVisible(this, '.teacher-list', 'teachersBtn', 'SelectedTeacherIds', 'преподавателей')">
+                                    <label class="form-check-label small text-muted" for="selectAllTeachers">Выбрать
+                                        все</label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-bold">Назначенные группы</label>
-                <div class="dropdown">
-                    @{
-                        int gCount = Model.SelectedGroupIds.Count;
-                        string gBtnText = gCount > 0 ? $"Выбрано: {gCount} групп" : "-- Выберите группы --";
-                        string gBtnClass = gCount > 0 ? "text-primary fw-bold" : "";
-                    }
-                    <button
-                        class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center @gBtnClass"
-                        type="button" data-bs-toggle="dropdown" aria-expanded="false" id="groupsBtn">
-                        @gBtnText
-                    </button>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Назначенные группы</label>
+                    <div class="dropdown">
+                        @{
+                            int gCount = Model.SelectedGroupIds.Count;
+                            string gBtnText = gCount > 0 ? $"Выбрано: {gCount} групп" : "-- Выберите группы --";
+                            string gBtnClass = gCount > 0 ? "text-primary fw-bold" : "";
+                        }
+                        <button
+                            class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center @gBtnClass"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false" id="groupsBtn">
+                            @gBtnText
+                        </button>
 
-                    <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
-                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
-                               onkeyup="filterList(this, '.groups-list')">
+                        <div class="dropdown-menu w-100 p-3 shadow" onclick="event.stopPropagation()">
+                            <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск..."
+                                   onkeyup="filterList(this, '.groups-list')">
 
-                        <div class="groups-list" style="max-height: 200px; overflow-y: auto;">
-                            @foreach (var group in Model.AvailableGroups)
-                            {
-                                var isChecked = Model.SelectedGroupIds.Contains(group.Id);
-                                <div class="form-check list-item">
-                                    <input class="form-check-input item-checkbox" type="checkbox"
-                                           name="SelectedGroupIds"
-                                           value="@group.Id"
-                                           id="g_@group.Id"
-                                           @(isChecked ? "checked" : "")
-                                           onchange="updateLabel('groupsBtn', 'SelectedGroupIds', 'групп')">
-                                    <label class="form-check-label small" for="g_@group.Id">@group.GroupName</label>
+                            <div class="groups-list" style="max-height: 200px; overflow-y: auto;">
+                                @foreach (var group in Model.AvailableGroups)
+                                {
+                                    var isChecked = Model.SelectedGroupIds.Contains(group.Id);
+                                    <div class="form-check list-item">
+                                        <input class="form-check-input item-checkbox" type="checkbox"
+                                               name="SelectedGroupIds"
+                                               value="@group.Id"
+                                               id="g_@group.Id"
+                                               @(isChecked ? "checked" : "")
+                                               onchange="updateLabel('groupsBtn', 'SelectedGroupIds', 'групп')">
+                                        <label class="form-check-label small" for="g_@group.Id">@group.GroupName</label>
+                                    </div>
+                                }
+                                <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
                                 </div>
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений
                             </div>
-                        </div>
 
-                        <div class="border-top pt-2 mt-2">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="selectAllGroups"
-                                       onchange="toggleAllVisible(this, '.groups-list', 'groupsBtn', 'SelectedGroupIds', 'групп')">
-                                <label class="form-check-label small text-muted" for="selectAllGroups">Выбрать
-                                    все</label>
+                            <div class="border-top pt-2 mt-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllGroups"
+                                           onchange="toggleAllVisible(this, '.groups-list', 'groupsBtn', 'SelectedGroupIds', 'групп')">
+                                    <label class="form-check-label small text-muted" for="selectAllGroups">Выбрать
+                                        все</label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <button type="submit" class="btn btn-primary">Сохранить</button>
-            <a asp-action="ManageSubjects" class="btn btn-secondary">Назад</a>
-        </form>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <a asp-action="ManageSubjects" class="btn btn-secondary">Назад</a>
+            </form>
+        </div>
     </div>
 </div>
 

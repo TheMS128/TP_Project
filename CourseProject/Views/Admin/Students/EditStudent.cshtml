@@ -5,81 +5,89 @@
     var currentGroupName = groupsList.FirstOrDefault(g => g.Value == Model.GroupId?.ToString())?.Text ?? "-- Без группы --";
 }
 
-<h2>Редактирование студента</h2>
-<hr />
-<div class="row">
-    <div class="col-md-5">
-        <form asp-action="EditStudent" method="post">
-            <input type="hidden" asp-for="Id" />
-            <div asp-validation-summary="All" class="text-danger"></div>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageStudents" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к списку студентов
+        </a>
+        <h2 class="fw-bold mt-2">Редактирование студента</h2>
+    </div>
 
-            <div class="mb-3">
-                <label asp-for="FullName" class="form-label">ФИО</label>
-                <input asp-for="FullName" class="form-control" />
-            </div>
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label">Email</label>
-                <input asp-for="Email" class="form-control" />
-            </div>
+    <hr />
+    <div class="row">
+        <div class="col-md-5">
+            <form asp-action="EditStudent" method="post">
+                <input type="hidden" asp-for="Id" />
+                <div asp-validation-summary="All" class="text-danger"></div>
 
-            <div class="mb-3">
-                <label class="form-label fw-bold">Группа</label>
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" 
-                            type="button" 
-                            id="groupDropdownBtn" 
-                            data-bs-toggle="dropdown" 
-                            aria-expanded="false">
-                        @currentGroupName
-                    </button>
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label">ФИО</label>
+                    <input asp-for="FullName" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label">Email</label>
+                    <input asp-for="Email" class="form-control" />
+                </div>
 
-                    <div class="dropdown-menu w-100 p-3 shadow" aria-labelledby="groupDropdownBtn">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Группа</label>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" 
+                                type="button" 
+                                id="groupDropdownBtn" 
+                                data-bs-toggle="dropdown" 
+                                aria-expanded="false">
+                            @currentGroupName
+                        </button>
+
+                        <div class="dropdown-menu w-100 p-3 shadow" aria-labelledby="groupDropdownBtn">
                         
-                        <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск группы..." onkeyup="filterGroupsInForm(this)">
+                            <input type="text" class="form-control form-control-sm mb-2" placeholder="Поиск группы..." onkeyup="filterGroupsInForm(this)">
 
-                        <div class="group-list-container" style="max-height: 250px; overflow-y: auto;">
+                            <div class="group-list-container" style="max-height: 250px; overflow-y: auto;">
                             
-                            <div class="form-check group-item">
-                                <input class="form-check-input" type="radio" asp-for="GroupId" value="" id="grp_none" 
-                                       checked="@(Model.GroupId == null)"
-                                       onclick="updateDropdownLabel(this, '-- Без группы --')">
-                                <label class="form-check-label small text-danger fw-bold" for="grp_none">
-                                    -- Без группы --
-                                </label>
-                            </div>
-                            <hr class="my-1">
+                                <div class="form-check group-item">
+                                    <input class="form-check-input" type="radio" asp-for="GroupId" value="" id="grp_none" 
+                                           checked="@(Model.GroupId == null)"
+                                           onclick="updateDropdownLabel(this, '-- Без группы --')">
+                                    <label class="form-check-label small text-danger fw-bold" for="grp_none">
+                                        -- Без группы --
+                                    </label>
+                                </div>
+                                <hr class="my-1">
 
-                            @if (groupsList != null)
-                            {
-                                foreach (var group in groupsList)
+                                @if (groupsList != null)
                                 {
-                                    bool isSelected = group.Value == Model.GroupId?.ToString();
+                                    foreach (var group in groupsList)
+                                    {
+                                        bool isSelected = group.Value == Model.GroupId?.ToString();
                                     
-                                    <div class="form-check group-item">
-                                        <input class="form-check-input" type="radio" asp-for="GroupId" value="@group.Value" id="grp_@group.Value" 
-                                               checked="@isSelected"
-                                               onclick="updateDropdownLabel(this, '@group.Text')">
-                                        <label class="form-check-label small" for="grp_@group.Value">
-                                            @group.Text
-                                        </label>
-                                    </div>
+                                        <div class="form-check group-item">
+                                            <input class="form-check-input" type="radio" asp-for="GroupId" value="@group.Value" id="grp_@group.Value" 
+                                                   checked="@isSelected"
+                                                   onclick="updateDropdownLabel(this, '@group.Text')">
+                                            <label class="form-check-label small" for="grp_@group.Value">
+                                                @group.Text
+                                            </label>
+                                        </div>
+                                    }
                                 }
-                            }
-                            <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
+                                <div class="text-muted small text-center no-results" style="display:none;">Нет совпадений</div>
+                            </div>
                         </div>
                     </div>
+                    <span asp-validation-for="GroupId" class="text-danger"></span>
                 </div>
-                <span asp-validation-for="GroupId" class="text-danger"></span>
-            </div>
 
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Описание</label>
-                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
-            </div>
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                </div>
 
-            <button type="submit" class="btn btn-primary">Сохранить</button>
-            <a asp-action="ManageStudents" class="btn btn-secondary">Отмена</a>
-        </form>
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <a asp-action="ManageStudents" class="btn btn-secondary">Отмена</a>
+            </form>
+        </div>
     </div>
 </div>
 

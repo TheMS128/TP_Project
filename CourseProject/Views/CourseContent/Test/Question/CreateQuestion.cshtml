@@ -3,70 +3,71 @@
     ViewData["Title"] = "Новый вопрос";
 }
 
-<div class="container mt-4">
-    <div class="row justify-content-center">
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="ManageQuestions" asp-route-testId="@Model.TestId" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к вопросам теста
+        </a>
+        <h2 class="fw-bold mt-2">Добавление вопроса</h2>
+    </div>
+
+    <hr />
+
+    <div class="row">
         <div class="col-lg-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Добавление вопроса</h5>
+            <form asp-action="CreateQuestion" method="post" id="questionForm">
+                <input type="hidden" asp-for="TestId" />
+                <input type="hidden" asp-for="SubjectId" />
+                
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Text" class="form-label fw-bold">Текст вопроса</label>
+                    <textarea asp-for="Text" class="form-control" rows="3" required placeholder="Введите текст вопроса..."></textarea>
+                    <span asp-validation-for="Text" class="text-danger"></span>
                 </div>
-                <div class="card-body">
-                    <form asp-action="CreateQuestion" method="post" id="questionForm">
-                        <input type="hidden" asp-for="TestId" />
-                        <input type="hidden" asp-for="SubjectId" />
-                        
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                        <div class="mb-3">
-                            <label asp-for="Text" class="form-label fw-bold">Текст вопроса</label>
-                            <textarea asp-for="Text" class="form-control" rows="2" required></textarea>
-                            <span asp-validation-for="Text" class="text-danger"></span>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Type" class="form-label">Тип вопроса</label>
-                                <select asp-for="Type" class="form-select">
-                                    <option value="Single">Один правильный ответ</option>
-                                    <option value="Multiple">Несколько правильных ответов</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Points" class="form-label">Баллы за ответ</label>
-                                <input asp-for="Points" class="form-control" type="number" min="1" value="1" />
-                            </div>
-                        </div>
-
-                        <hr />
-                        <label class="form-label fw-bold mb-3">Варианты ответов</label>
-
-                        <div id="answersContainer">
-                            @for (int i = 0; i < Model.Answers.Count; i++)
-                            {
-                                <div class="input-group mb-2 answer-row">
-                                    <div class="input-group-text bg-white">
-                                        <input class="form-check-input mt-0" type="checkbox" name="Answers[@i].IsCorrect" value="true" @(Model.Answers[i].IsCorrect ? "checked" : "")>
-                                        <input type="hidden" name="Answers[@i].IsCorrect" value="false" />
-                                    </div>
-                                    <input type="text" name="Answers[@i].Text" class="form-control" placeholder="Вариант ответа" value="@Model.Answers[i].Text" required />
-                                    <button type="button" class="btn btn-outline-danger remove-answer" @(i < 2 ? "disabled" : "")>
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                            }
-                        </div>
-
-                        <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addAnswerBtn">
-                            <i class="bi bi-plus-lg"></i> Добавить вариант
-                        </button>
-
-                        <div class="d-flex justify-content-between">
-                            <a asp-action="ManageQuestions" asp-route-testId="@Model.TestId" class="btn btn-secondary">Отмена</a>
-                            <button type="submit" class="btn btn-success px-4">Сохранить вопрос</button>
-                        </div>
-                    </form>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Type" class="form-label">Тип вопроса</label>
+                        <select asp-for="Type" class="form-select">
+                            <option value="Single">Один правильный ответ</option>
+                            <option value="Multiple">Несколько правильных ответов</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Points" class="form-label">Баллы за ответ</label>
+                        <input asp-for="Points" class="form-control" type="number" min="1" value="1" />
+                    </div>
                 </div>
-            </div>
+
+                <h5 class="mt-4 mb-3 border-bottom pb-2 text-muted">Варианты ответов</h5>
+
+                <div id="answersContainer">
+                    @for (int i = 0; i < Model.Answers.Count; i++)
+                    {
+                        <div class="input-group mb-2 answer-row">
+                            <div class="input-group-text bg-white">
+                                <input class="form-check-input mt-0" type="checkbox" name="Answers[@i].IsCorrect" value="true" @(Model.Answers[i].IsCorrect ? "checked" : "") title="Отметить как правильный">
+                                <input type="hidden" name="Answers[@i].IsCorrect" value="false" />
+                            </div>
+                            <input type="text" name="Answers[@i].Text" class="form-control" placeholder="Вариант ответа" value="@Model.Answers[i].Text" required />
+                            <button type="button" class="btn btn-outline-danger remove-answer" @(i < 2 ? "disabled" : "") title="Удалить вариант">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addAnswerBtn">
+                    <i class="bi bi-plus-lg"></i> Добавить вариант
+                </button>
+
+                <div class="d-flex mt-4">
+                    <button type="submit" class="btn btn-success px-4 me-2">Сохранить вопрос</button>
+                    <a asp-action="ManageQuestions" asp-route-testId="@Model.TestId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -84,11 +85,11 @@
                 div.className = 'input-group mb-2 answer-row';
                 div.innerHTML = `
                     <div class="input-group-text bg-white">
-                        <input class="form-check-input mt-0" type="checkbox" name="Answers[${count}].IsCorrect" value="true">
+                        <input class="form-check-input mt-0" type="checkbox" name="Answers[${count}].IsCorrect" value="true" title="Отметить как правильный">
                         <input type="hidden" name="Answers[${count}].IsCorrect" value="false" />
                     </div>
                     <input type="text" name="Answers[${count}].Text" class="form-control" placeholder="Вариант ответа" required />
-                    <button type="button" class="btn btn-outline-danger remove-answer">
+                    <button type="button" class="btn btn-outline-danger remove-answer" title="Удалить вариант">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 `;
@@ -125,6 +126,8 @@
                     hidden.name = `Answers[${index}].IsCorrect`;
                 });
             }
+            
+            updateRemoveButtons();
         });
     </script>
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}

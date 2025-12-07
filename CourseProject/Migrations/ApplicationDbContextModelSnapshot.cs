@@ -197,9 +197,6 @@ namespace CourseProject.Migrations
                     b.Property<int?>("DaysToComplete")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
-
                     b.Property<int?>("MaxAttempts")
                         .HasColumnType("integer");
 

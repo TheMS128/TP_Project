@@ -1,78 +1,130 @@
 ﻿@model CourseProject.DataBase.DbModels.Test
 @{
-    ViewData["Title"] = "Начало теста";
+    ViewData["Title"] = Model.Title;
+    bool canTake = ViewBag.CanTake ?? false;
+    bool hasActiveAttempt = ViewBag.HasActiveAttempt ?? false;
+    int attemptsUsed = ViewBag.AttemptsUsed ?? 0;
+    var pastAttempts = ViewBag.PastAttempts as List<CourseProject.DataBase.DbModels.TestAttempt>;
 }
 
-<div class="container mt-5 text-center" style="max-width: 600px;">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h3>@Model.Title</h3>
-        </div>
-        <div class="card-body">
-            <p class="lead">Вам предстоит пройти тестирование по предмету <strong>@Model.Subject.Title</strong>.</p>
-            
-            <ul class="list-group list-group-flush text-start mb-4">
-                <li class="list-group-item">
-                    <i class="bi bi-clock me-2"></i> Лимит времени: 
-                    <strong>@(Model.TimeLimitMinutes.HasValue ? Model.TimeLimitMinutes + " мин." : "Неограниченно")</strong>
-                </li>
-                <li class="list-group-item">
-                    <i class="bi bi-arrow-repeat me-2"></i> Попыток использовано: 
-                    <strong>@ViewBag.AttemptsUsed / @(Model.MaxAttempts?.ToString() ?? "∞")</strong>
-                </li>
-            </ul>
+<div class="container py-4">
+    <div class="mb-4">
+        <a asp-action="Details" asp-route-id="@Model.SubjectId" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Назад к курсу
+        </a>
+    </div>
 
-            @if ((bool)ViewBag.CanTake)
-            {
-                if ((bool)ViewBag.HasActiveAttempt)
-                {
-                    <div class="alert alert-warning">
-                        У вас есть незавершенная попытка. Вы можете продолжить её.
+    <div class="row">
+        <div class="col-lg-8">
+            <h1 class="fw-bold mb-3">@Model.Title</h1>
+            <p class="lead text-muted mb-4">
+                Тестирование по предмету <span class="text-dark fw-semibold">@Model.Subject.Title</span>.
+            </p>
+
+            <div class="d-flex flex-wrap gap-4 mb-5 pb-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3 text-primary">
+                        <i class="bi bi-clock fs-4"></i>
                     </div>
-                    <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-warning btn-lg w-100">
-                        Продолжить тест
-                    </a>
+                    <div>
+                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Время на тест</small>
+                        <span class="fw-bold fs-5">
+                            @(Model.TimeLimitMinutes.HasValue ? $"{Model.TimeLimitMinutes} мин." : "Без лимита")
+                        </span>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3 text-warning">
+                        <i class="bi bi-arrow-repeat fs-4"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Попытки</small>
+                        <span class="fw-bold fs-5">
+                            @attemptsUsed / @(Model.MaxAttempts?.ToString() ?? "∞")
+                        </span>
+                    </div>
+                </div>
+                
+                @if (Model.DaysToComplete.HasValue)
+                {
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light rounded-circle p-2 me-3 text-danger">
+                            <i class="bi bi-calendar-event fs-4"></i>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Срок сдачи</small>
+                            <span class="fw-bold fs-5">@Model.DaysToComplete дн.</span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="mb-5">
+                @if (canTake)
+                {
+                    if (hasActiveAttempt)
+                    {
+                        <div class="alert alert-warning border-warning d-flex align-items-center mb-3">
+                            <i class="bi bi-exclamation-circle fs-4 me-3"></i>
+                            <div>
+                                <strong>У вас есть незавершенная попытка.</strong><br/>
+                                Вы можете продолжить её с того места, где остановились.
+                            </div>
+                        </div>
+                        <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-warning btn-lg px-5 rounded-pill shadow-sm">
+                            <i class="bi bi-play-fill me-2"></i> Продолжить тест
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-success btn-lg px-5 rounded-pill shadow-sm">
+                            <i class="bi bi-play-fill me-2"></i> Начать тестирование
+                        </a>
+                    }
                 }
                 else
                 {
-                    <a asp-action="TakeTest" asp-route-testId="@Model.Id" class="btn btn-success btn-lg w-100">
-                        Начать тестирование
-                    </a>
+                    <div class="alert alert-secondary d-flex align-items-center">
+                        <i class="bi bi-lock-fill fs-4 me-3 opacity-50"></i>
+                        <div>
+                            <strong>Тестирование недоступно.</strong><br/>
+                            Вы исчерпали все попытки или срок сдачи истек.
+                        </div>
+                    </div>
                 }
-            }
-            else
-            {
-                <div class="alert alert-danger">
-                    Вы исчерпали все попытки прохождения этого теста.
-                </div>
-                <a asp-action="Details" asp-route-id="@Model.SubjectId" class="btn btn-secondary">
-                    Вернуться к курсу
-                </a>
-            }
+            </div>
 
-            @if (ViewBag.PastAttempts != null && ((List<CourseProject.DataBase.DbModels.TestAttempt>)ViewBag.PastAttempts).Any())
+            @if (pastAttempts != null && pastAttempts.Any())
             {
-                <hr class="my-4" />
-                <h5 class="text-start text-muted mb-3"><i class="bi bi-clock-history"></i> Ваши прошлые результаты</h5>
-                
+                <h5 class="fw-bold mb-3 mt-5">Ваши результаты</h5>
                 <div class="table-responsive">
-                    <table class="table table-bordered table-sm table-hover align-middle">
-                        <thead class="table-light">
+                    <table class="table table-hover align-middle border-top">
+                        <thead class="table-light small text-uppercase text-muted">
                             <tr>
-                                <th class="text-center">Дата</th>
-                                <th class="text-center">Баллы</th>
-                                <th class="text-center">Детали</th>
+                                <th class="py-3 ps-4">Дата завершения</th>
+                                <th class="py-3 text-center">Результат</th>
+                                <th class="py-3 text-end pe-4">Действия</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var attempt in (List<CourseProject.DataBase.DbModels.TestAttempt>)ViewBag.PastAttempts)
+                            @foreach (var attempt in pastAttempts)
                             {
                                 <tr>
-                                    <td>@attempt.EndTime?.ToString("dd.MM.yyyy HH:mm")</td>
-                                    <td class="fw-bold text-primary">@attempt.Score</td>
-                                    <td>
-                                        <a asp-action="TestResult" asp-route-attemptId="@attempt.Id" class="btn btn-sm btn-outline-info py-0" title="Посмотреть результат">
-                                            <i class="bi bi-eye"></i>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-check2-circle text-success me-2"></i>
+                                            @attempt.EndTime?.ToString("dd MMMM yyyy, HH:mm")
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border fs-6">
+                                            @attempt.Score баллов
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a asp-action="TestResult" asp-route-attemptId="@attempt.Id" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            Подробнее
                                         </a>
                                     </td>
                                 </tr>
@@ -81,6 +133,21 @@
                     </table>
                 </div>
             }
+        </div>
+        
+        <div class="col-lg-4 d-none d-lg-block ps-lg-5 border-start">
+            <div class="sticky-top" style="top: 2rem;">
+                <h6 class="text-uppercase text-muted fw-bold small mb-3">Информация</h6>
+                <div class="alert alert-light border">
+                    <p class="mb-2 small">
+                        <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                        Перед началом убедитесь, что у вас стабильное подключение к интернету.
+                    </p>
+                    <p class="mb-0 small text-muted">
+                        Таймер запустится сразу после нажатия кнопки "Начать".
+                    </p>
+                </div>
             </div>
+        </div>
     </div>
 </div>
