@@ -2,7 +2,6 @@
 
 public enum ContentStatus
 {
-    Draft = 0,      
-    Hidden = 1,     
-    Published = 2   
+    Hidden = 0,     
+    Published = 1   
 }
