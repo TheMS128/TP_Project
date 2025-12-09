@@ -3,89 +3,86 @@
     ViewData["Title"] = $"Результаты: {Model.TestTitle}";
 }
 
-<div class="mb-3">
-    <a asp-action="ManageTests" asp-route-subjectId="@Model.SubjectId" class="text-decoration-none text-muted small">
-        <i class="bi bi-arrow-left"></i> Назад к тестам
-    </a>
-</div>
-
-<h2>Результаты теста: @Model.TestTitle</h2>
-
-<div class="d-flex justify-content-between align-items-center mb-3 mt-3">
-    
-    <div class="text-muted">
-        Всего студентов: @Model.Results.Count
+<div class="container py-4">
+    <div class="mb-2">
+        <a asp-action="ManageTests" asp-route-subjectId="@Model.SubjectId" class="text-decoration-none text-muted small">
+            <i class="bi bi-arrow-left"></i> Назад к тестам
+        </a>
     </div>
 
-    <div class="d-flex">
-        <input type="text" id="statsSearchInput" class="form-control me-2" 
-               placeholder="Поиск студента..." style="width: 250px;" onkeyup="filterStats()" />
-        
-        <button type="button" class="btn btn-outline-primary" onclick="filterStats()">Поиск</button>
-        <button type="button" class="btn btn-outline-secondary ms-1" onclick="resetSearch()">Сброс</button>
-    </div>
-</div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">Результаты теста: @Model.TestTitle</h2>
 
-<table class="table align-middle table-bordered" id="statsTable">
-    <thead class="table-light">
-    <tr>
-        <th class="text-start">Студент</th>
-        <th class="text-center" style="width: 150px;">Группа</th>
-        <th class="text-center" style="width: 120px;">Попыток</th>
-        <th class="text-center" style="width: 150px;">Лучший балл</th>
-        <th class="text-end" style="width: 200px;">Дата сдачи</th>
-    </tr>
-    </thead>
-    <tbody>
-    @if (Model.Results.Any())
-    {
-        foreach (var item in Model.Results)
+        <div class="d-flex">
+            <input type="text" id="statsSearchInput" class="form-control me-2" 
+                   placeholder="Поиск пользователя..." style="width: 250px;" onkeyup="filterStats()" />
+            
+            <button type="button" class="btn btn-outline-primary" onclick="filterStats()">Поиск</button>
+            <button type="button" class="btn btn-outline-secondary ms-1" onclick="resetSearch()">Сброс</button>
+        </div>
+    </div>
+
+    <table class="table table-hover align-middle table-bordered" id="statsTable">
+        <thead class="table-light">
+        <tr>
+            <th class="text-start">Пользователь</th>
+            <th class="text-center" style="width: 150px;">Группа</th>
+            <th class="text-center" style="width: 120px;">Попыток</th>
+            <th class="text-center" style="width: 150px;">Лучший балл</th>
+            <th class="text-end" style="width: 200px;">Дата сдачи</th>
+        </tr>
+        </thead>
+        <tbody>
+        @if (Model.Results.Any())
         {
-            <tr class="stats-row">
-                <td class="text-start">
-                    @item.StudentName
-                </td>
+            foreach (var item in Model.Results)
+            {
+                <tr class="stats-row">
+                    <td class="text-start">
+                        @item.StudentName
+                    </td>
 
-                <td class="text-center">
-                    @(string.IsNullOrEmpty(item.GroupName) ? "—" : item.GroupName)
-                </td>
+                    <td class="text-center">
+                        @(string.IsNullOrEmpty(item.GroupName) ? "—" : item.GroupName)
+                    </td>
 
-                <td class="text-center">
-                    @item.AttemptsCount
-                </td>
+                    <td class="text-center">
+                        @item.AttemptsCount
+                    </td>
 
-                <td class="text-center">
-                    @if (item.BestScore.HasValue)
-                    {
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fs-6">
-                            @item.BestScore.Value
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="text-muted small">—</span>
-                    }
-                </td>
+                    <td class="text-center">
+                        @if (item.BestScore.HasValue)
+                        {
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fs-6">
+                                @item.BestScore.Value
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted small">—</span>
+                        }
+                    </td>
 
-                <td class="text-end text-muted small">
-                    @(item.LastAttemptDate?.ToString("dd.MM.yyyy HH:mm") ?? "—")
+                    <td class="text-end text-muted small">
+                        @(item.LastAttemptDate?.ToString("dd.MM.yyyy HH:mm") ?? "—")
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center py-5 text-muted">
+                    <p class="mb-0">Пока никто не проходил этот тест.</p>
                 </td>
             </tr>
         }
-    }
-    else
-    {
-        <tr>
-            <td colspan="5" class="text-center py-5 text-muted">
-                <p class="mb-0">Пока никто не проходил этот тест.</p>
-            </td>
-        </tr>
-    }
-    </tbody>
-</table>
+        </tbody>
+    </table>
 
-<div id="noStatsFound" class="text-center py-4 text-muted" style="display: none;">
-    По вашему запросу ничего не найдено.
+    <div id="noStatsFound" class="text-center py-4 text-muted" style="display: none;">
+        По вашему запросу ничего не найдено.
+    </div>
 </div>
 
 <script>

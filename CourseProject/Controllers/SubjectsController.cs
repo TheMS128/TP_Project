@@ -33,8 +33,10 @@ public class SubjectsController : Controller
             return await _context.Subjects
                 .AnyAsync(s => s.Id == subjectId && s.Teachers.Any(t => t.Id == userId));
         }
+
         return false;
     }
+
     public async Task<IActionResult> Index()
     {
         var userId = _userManager.GetUserId(User);
@@ -44,8 +46,8 @@ public class SubjectsController : Controller
         {
             subjects = await _context.Subjects
                 .Include(s => s.Lectures)
-                .Include(s => s.Tests)           
-                .Include(s => s.EnrolledGroups)  
+                .Include(s => s.Tests)
+                .Include(s => s.EnrolledGroups)
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -54,8 +56,8 @@ public class SubjectsController : Controller
             subjects = await _context.Subjects
                 .Where(s => s.Teachers.Any(t => t.Id == userId))
                 .Include(s => s.Lectures)
-                .Include(s => s.Tests)           
-                .Include(s => s.EnrolledGroups)  
+                .Include(s => s.Tests)
+                .Include(s => s.EnrolledGroups)
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -65,7 +67,7 @@ public class SubjectsController : Controller
                 .Where(s => s.EnrolledGroups.Any(g => g.Students.Any(u => u.Id == userId)))
                 .Where(s => s.Status == ContentStatus.Published)
                 .Include(s => s.Lectures)
-                .Include(s => s.Tests)           
+                .Include(s => s.Tests)
                 .OrderBy(s => s.Title)
                 .ToListAsync();
         }
@@ -137,7 +139,6 @@ public class SubjectsController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Student")]
     public async Task<IActionResult> StartTest(int testId)
     {
         var userId = _userManager.GetUserId(User);
@@ -145,13 +146,21 @@ public class SubjectsController : Controller
             .Include(t => t.Subject)
             .FirstOrDefaultAsync(t => t.Id == testId);
 
-        if (test == null || test.Status != ContentStatus.Published) return NotFound();
+        if (test == null) return NotFound();
 
-        bool hasAccess = await _context.Groups
-            .Where(g => g.Students.Any(u => u.Id == userId))
-            .AnyAsync(g => g.Subjects.Any(s => s.Id == test.SubjectId));
+        bool isStaff = User.IsInRole("Admin") || User.IsInRole("Teacher");
 
-        if (!hasAccess) return Forbid();
+        if (!isStaff && test.Status != ContentStatus.Published)
+            return NotFound();
+
+        if (!isStaff)
+        {
+            bool hasAccess = await _context.Groups
+                .Where(g => g.Students.Any(u => u.Id == userId))
+                .AnyAsync(g => g.Subjects.Any(s => s.Id == test.SubjectId));
+
+            if (!hasAccess) return Forbid();
+        }
 
         int attemptsUsed = await _context.TestAttempts
             .CountAsync(ta => ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
@@ -165,7 +174,9 @@ public class SubjectsController : Controller
             .ToListAsync();
 
         ViewBag.AttemptsUsed = attemptsUsed;
-        ViewBag.CanTake = test.MaxAttempts == null || attemptsUsed < test.MaxAttempts;
+
+        ViewBag.CanTake = isStaff || (test.MaxAttempts == null || attemptsUsed < test.MaxAttempts);
+
         ViewBag.HasActiveAttempt = activeAttempt != null;
         ViewBag.PastAttempts = pastAttempts;
 
@@ -173,10 +184,10 @@ public class SubjectsController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Student")]
     public async Task<IActionResult> TakeTest(int testId)
     {
         var userId = _userManager.GetUserId(User);
+        bool isStaff = User.IsInRole("Admin") || User.IsInRole("Teacher");
 
         var attempt = await _context.TestAttempts
             .FirstOrDefaultAsync(ta => ta.TestId == testId && ta.StudentId == userId && !ta.IsCompleted);
@@ -186,10 +197,13 @@ public class SubjectsController : Controller
             var test = await _context.Tests.FindAsync(testId);
             if (test == null) return NotFound();
 
-            int used = await _context.TestAttempts.CountAsync(ta =>
-                ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
-            if (test.MaxAttempts != null && used >= test.MaxAttempts)
-                return RedirectToAction(nameof(StartTest), new { testId });
+            if (!isStaff)
+            {
+                int used = await _context.TestAttempts.CountAsync(ta =>
+                    ta.TestId == testId && ta.StudentId == userId && ta.IsCompleted);
+                if (test.MaxAttempts != null && used >= test.MaxAttempts)
+                    return RedirectToAction(nameof(StartTest), new { testId });
+            }
 
             attempt = new TestAttempt
             {
@@ -203,22 +217,23 @@ public class SubjectsController : Controller
             await _context.SaveChangesAsync();
         }
 
-        var questions = await _context.Questions
+        var questionsData = await _context.Questions
             .Where(q => q.TestId == testId)
             .Include(q => q.AnswerOptions)
-            .Select(q => new QuestionTakeViewModel
-            {
-                QuestionId = q.Id,
-                Text = q.Text,
-                Type = q.Type,
-                Points = q.Points,
-                Options = q.AnswerOptions.Select(o => new AnswerOptionTakeViewModel
-                {
-                    Id = o.Id,
-                    Text = o.Text
-                }).OrderBy(x => Guid.NewGuid()).ToList()
-            })
             .ToListAsync();
+
+        var questions = questionsData.Select(q => new QuestionTakeViewModel
+        {
+            QuestionId = q.Id,
+            Text = q.Text,
+            Type = q.Type,
+            Points = q.Points,
+            Options = q.AnswerOptions.Select(o => new AnswerOptionTakeViewModel
+            {
+                Id = o.Id,
+                Text = o.Text
+            }).OrderBy(x => Guid.NewGuid()).ToList()
+        }).ToList();
 
         var testInfo = await _context.Tests.FindAsync(testId);
 
@@ -236,7 +251,6 @@ public class SubjectsController : Controller
     }
 
     [HttpPost]
-    [Authorize(Roles = "Student")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitTest(SubmitTestViewModel model)
     {
@@ -319,7 +333,6 @@ public class SubjectsController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Student")]
     public async Task<IActionResult> TestResult(int attemptId)
     {
         var userId = _userManager.GetUserId(User);
