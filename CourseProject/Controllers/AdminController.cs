@@ -27,10 +27,6 @@ public class AdminController : Controller
 
     public IActionResult Index() => View();
 
-    // ============================================================
-    // УПРАВЛЕНИЕ СТУДЕНТАМИ
-    // ============================================================
-
     public async Task<IActionResult> ManageStudents(string searchString)
     {
         var studentRoleId = await GetRoleIdAsync("Student");
@@ -123,7 +119,7 @@ public class AdminController : Controller
             {
                 student.FullName = model.FullName;
                 student.Email = model.Email;
-                student.UserName = model.Email; // Обновляем и username
+                student.UserName = model.Email; 
                 student.Description = model.Description;
                 student.GroupId = model.GroupId;
 
@@ -229,15 +225,13 @@ public class AdminController : Controller
             {
                 group.GroupName = model.GroupName;
                 
-                // Сброс группы у тех, кого убрали из списка
                 var idsToKeep = model.SelectedStudentIds ?? new List<string>();
                 foreach (var student in group.Students.Where(s => !idsToKeep.Contains(s.Id)))
                 {
                     student.GroupId = null;
                 }
 
-                await AssignStudentsToGroupAsync(group.Id, idsToKeep); // Назначение новых
-                
+                await AssignStudentsToGroupAsync(group.Id, idsToKeep); 
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(ManageGroups));
             }
@@ -249,11 +243,9 @@ public class AdminController : Controller
     [HttpPost]
     public async Task<IActionResult> UpdateGroupStudents(int groupId, List<string> selectedStudentIds)
     {
-        // Сброс текущих
         var currentStudents = await _context.Users.Where(u => u.GroupId == groupId).ToListAsync();
         currentStudents.ForEach(s => s.GroupId = null);
 
-        // Назначение новых
         await AssignStudentsToGroupAsync(groupId, selectedStudentIds);
         
         await _context.SaveChangesAsync();
@@ -266,7 +258,6 @@ public class AdminController : Controller
         var group = await _context.Groups.Include(g => g.Students).FirstOrDefaultAsync(g => g.Id == id);
         if (group != null)
         {
-            // EF Core SetNull behavior handles generic relationships, but explicit nulling is safer for logic
             if (group.Students != null)
             {
                 foreach (var s in group.Students) s.GroupId = null;
@@ -276,10 +267,6 @@ public class AdminController : Controller
         }
         return RedirectToAction(nameof(ManageGroups));
     }
-
-    // ============================================================
-    // УПРАВЛЕНИЕ ПРЕПОДАВАТЕЛЯМИ
-    // ============================================================
 
     public async Task<IActionResult> ManageTeachers(string searchString)
     {
@@ -392,10 +379,6 @@ public class AdminController : Controller
         return RedirectToAction(nameof(ManageTeachers));
     }
 
-    // ============================================================
-    // УПРАВЛЕНИЕ ПРЕДМЕТАМИ
-    // ============================================================
-
     public async Task<IActionResult> ManageSubjects(string searchString)
     {
         var query = _context.Subjects
@@ -489,7 +472,6 @@ public class AdminController : Controller
 
             if (subject != null)
             {
-                // Проверка только при публикации
                 if (model.Status == ContentStatus.Published)
                 {
                     var errors = ValidateSubjectForPublishing(subject);
@@ -538,7 +520,6 @@ public class AdminController : Controller
 
             subject.Status = newStatus;
             await _context.SaveChangesAsync();
-            // Optional: TempData["SubjectStatusSuccess"] = ...
         }
         return RedirectToAction(nameof(ManageSubjects));
     }
@@ -604,10 +585,6 @@ public class AdminController : Controller
         }
         return RedirectToAction(nameof(Index));
     }
-
-    // ============================================================
-    // PRIVATE HELPERS
-    // ============================================================
 
     private async Task<string?> GetRoleIdAsync(string roleName)
     {

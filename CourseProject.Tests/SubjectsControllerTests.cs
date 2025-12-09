@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using Microsoft.Data.Sqlite;
+using System.Security.Claims;
 using CourseProject.Controllers;
 using CourseProject.DataBase;
 using CourseProject.DataBase.DbModels;
@@ -16,130 +17,257 @@ namespace CourseProject.Tests;
 public class SubjectsControllerTests
 {
     private ApplicationDbContext _context;
+    private SubjectsController _controller;
+    private SqliteConnection _connection;
     private Mock<UserManager<User>> _mockUserManager;
     private Mock<IWebHostEnvironment> _mockEnvironment;
-    private SubjectsController _controller;
 
     [SetUp]
     public void Setup()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
 
-        var store = new Mock<IUserStore<User>>();
-        _mockUserManager = new Mock<UserManager<User>>(store.Object, null, null, null, null, null, null, null, null);
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite(_connection)
+            .EnableSensitiveDataLogging()
+            .Options;
+
+        _context = new ApplicationDbContext(options);
+        _context.Database.EnsureCreated();
+
+        var userStoreMock = new Mock<IUserStore<User>>();
+        _mockUserManager = new Mock<UserManager<User>>(
+            userStoreMock.Object, null, null, null, null, null, null, null, null);
 
         _mockEnvironment = new Mock<IWebHostEnvironment>();
-        _mockEnvironment.Setup(e => e.WebRootPath).Returns("wwwroot_test"); // Use a distinct test folder
-
+        _mockEnvironment.Setup(m => m.WebRootPath).Returns("TestWebRootPath");
         _controller = new SubjectsController(_context, _mockUserManager.Object, _mockEnvironment.Object);
+
+        SetUserRole("Student", "s1");
     }
 
     [TearDown]
     public void TearDown()
     {
-        _context.Dispose();
-        _controller.Dispose();
-
-        // Clean up test files
-        if (Directory.Exists("wwwroot_test"))
-        {
-            try
-            {
-                Directory.Delete("wwwroot_test", true);
-            }
-            catch
-            {
-            }
-        }
+        _context?.Dispose();
+        _connection?.Close();
+        _controller?.Dispose();
     }
 
-    private void MockUser(string userId, string role = "Student")
+    private void SetUserRole(string role, string userId)
     {
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, userId),
             new Claim(ClaimTypes.Role, role)
-        }, "mock"));
+        };
+        var identity = new ClaimsIdentity(claims, "mock");
+        var principal = new ClaimsPrincipal(identity);
 
         _controller.ControllerContext = new ControllerContext
         {
-            HttpContext = new DefaultHttpContext { User = user }
+            HttpContext = new DefaultHttpContext { User = principal }
         };
-        _mockUserManager.Setup(u => u.GetUserId(It.IsAny<ClaimsPrincipal>())).Returns(userId);
-        _mockUserManager.Setup(u => u.IsInRoleAsync(It.IsAny<User>(), role)).ReturnsAsync(true);
+
+        _mockUserManager.Setup(u => u.GetUserId(principal)).Returns(userId);
+    }
+
+    private async Task SeedDataAsync()
+    {
+        var group = new Group { Id = 1, GroupName = "IT-101" };
+
+        var student = new User
+        {
+            Id = "s1",
+            FullName = "Student One",
+            UserName = "s1",
+            GroupId = 1,
+            Description = "Desc"
+        };
+
+        var teacher = new User
+        {
+            Id = "t1",
+            FullName = "Teacher One",
+            UserName = "t1",
+            Description = "Desc"
+        };
+
+        var subject = new Subject
+        {
+            Id = 1,
+            Title = "Math",
+            Description = "Math Desc",
+            Status = ContentStatus.Published,
+            EnrolledGroups = new List<Group>(),
+            Teachers = new List<User>()
+        };
+
+        _context.Groups.Add(group);
+        _context.Users.AddRange(student, teacher);
+        _context.Subjects.Add(subject);
+        await _context.SaveChangesAsync();
     }
 
     [Test]
     public async Task Index_Student_ReturnsOnlyEnrolledAndPublishedSubjects()
     {
-        // Arrange
-        var studentId = "student1";
-        var group = new Group { Id = 1, Students = new List<User> { new User { Id = studentId } } };
+        await SeedDataAsync();
+        var group = await _context.Groups.FindAsync(1);
+        var subject = await _context.Subjects.FindAsync(1);
 
-        var subjectPublished = new Subject
-            { Id = 1, Title = "Pub", Status = ContentStatus.Published, EnrolledGroups = new List<Group> { group } };
-        var subjectDraft = new Subject
-            { Id = 2, Title = "Draft", Status = ContentStatus.Hidden, EnrolledGroups = new List<Group> { group } };
-        var subjectNotEnrolled = new Subject { Id = 3, Title = "Other", Status = ContentStatus.Published };
-
-        _context.Groups.Add(group);
-        _context.Subjects.AddRange(subjectPublished, subjectDraft, subjectNotEnrolled);
+        subject.EnrolledGroups.Add(group);
         await _context.SaveChangesAsync();
-        MockUser(studentId, "Student");
 
+        _context.Subjects.Add(new Subject
+        {
+            Id = 2, Title = "Hidden", Description = "D", Status = ContentStatus.Hidden,
+            EnrolledGroups = new List<Group> { group }
+        });
+        await _context.SaveChangesAsync();
+        SetUserRole("Student", "s1");
         var result = await _controller.Index();
 
-        var viewResult = result as ViewResult;
-        Assert.That(viewResult, Is.Not.Null);
-        var model = viewResult.Model as List<Subject>;
-        Assert.That(model, Is.Not.Null);
-        Assert.That(model.Count, Is.EqualTo(1));
-        Assert.That(model[0].Title, Is.EqualTo("Pub"));
+        Assert.That(result, Is.InstanceOf<ViewResult>());
+        var model = ((ViewResult)result).Model as List<Subject>;
+        Assert.That(model, Has.Count.EqualTo(1));
+        Assert.That(model[0].Title, Is.EqualTo("Math"));
+    }
+
+    [Test]
+    public async Task Index_Teacher_ReturnsOnlyAssignedSubjects()
+    {
+        await SeedDataAsync();
+        var subject = await _context.Subjects.FindAsync(1);
+        var teacher = await _context.Users.FindAsync("t1");
+
+        subject.Teachers.Add(teacher); 
+        await _context.SaveChangesAsync();
+
+        SetUserRole("Teacher", "t1");
+        var result = await _controller.Index();
+
+        Assert.That(result, Is.InstanceOf<ViewResult>());
+        var model = ((ViewResult)result).Model as List<Subject>;
+        Assert.That(model, Has.Count.EqualTo(1));
+        Assert.That(model[0].Title, Is.EqualTo("Math"));
+    }
+
+    [Test]
+    public async Task Index_Admin_ReturnsAllSubjects()
+    {
+        await SeedDataAsync();
+        _context.Subjects.Add(
+            new Subject { Id = 2, Title = "Hidden", Description = "D", Status = ContentStatus.Hidden });
+        await _context.SaveChangesAsync();
+        SetUserRole("Admin", "admin1");
+        var result = await _controller.Index();
+
+        var model = ((ViewResult)result).Model as List<Subject>;
+        Assert.That(model, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Details_StudentEnrolled_ReturnsView()
+    {
+        await SeedDataAsync();
+        var group = await _context.Groups.FindAsync(1);
+        var subject = await _context.Subjects.FindAsync(1);
+        subject.EnrolledGroups.Add(group);
+        await _context.SaveChangesAsync();
+        SetUserRole("Student", "s1");
+        var result = await _controller.Details(1);
+
+        Assert.That(result, Is.InstanceOf<ViewResult>());
+        var model = ((ViewResult)result).Model as Subject;
+        Assert.That(model.Id, Is.EqualTo(1));
     }
 
     [Test]
     public async Task Details_StudentNotEnrolled_ReturnsForbid()
     {
-        var subject = new Subject { Id = 1, Status = ContentStatus.Published };
-        _context.Subjects.Add(subject);
-        await _context.SaveChangesAsync();
-
-        MockUser("student1", "Student");
-
+        await SeedDataAsync();
+        SetUserRole("Student", "s1");
         var result = await _controller.Details(1);
+
         Assert.That(result, Is.InstanceOf<ForbidResult>());
     }
 
     [Test]
     public async Task DownloadLecture_Student_Published_ReturnsFile()
     {
-        var studentId = "s1";
-        var group = new Group { Id = 1, Students = new List<User> { new User { Id = studentId } } };
-        var subject = new Subject { Id = 1, EnrolledGroups = new List<Group> { group } };
+        await SeedDataAsync();
+        var group = await _context.Groups.FindAsync(1);
+        var subject = await _context.Subjects.FindAsync(1);
+        subject.EnrolledGroups.Add(group);
 
         var lecture = new Lecture
         {
-            Id = 10,
-            SubjectId = 1,
-            FilePath = "/files/test.pdf",
-            Status = ContentStatus.Published
+            Id = 1,
+            Title = "L1",
+            FilePath = "lectures/test.pdf",
+            Status = ContentStatus.Published,
+            SubjectId = 1
         };
+        _context.Lectures.Add(lecture);
+        await _context.SaveChangesAsync();
+        SetUserRole("Student", "s1");
+        var result = await _controller.DownloadLecture(1);
 
-        _context.Groups.Add(group);
-        _context.Subjects.Add(subject);
+        Assert.That(result, Is.InstanceOf<NotFoundObjectResult>());
+        var notFound = (NotFoundObjectResult)result;
+        Assert.That(notFound.Value, Is.EqualTo("Файл не найден на сервере."));
+    }
+
+    [Test]
+    public async Task DownloadLecture_Student_Hidden_ReturnsForbid()
+    {
+        await SeedDataAsync();
+        var group = await _context.Groups.FindAsync(1);
+        var subject = await _context.Subjects.FindAsync(1);
+        subject.EnrolledGroups.Add(group);
+
+        var lecture = new Lecture
+        {
+            Id = 1,
+            Title = "L1",
+            FilePath = "test.pdf",
+            Status = ContentStatus.Hidden, 
+            SubjectId = 1
+        };
         _context.Lectures.Add(lecture);
         await _context.SaveChangesAsync();
 
-        MockUser(studentId, "Student");
+        SetUserRole("Student", "s1");
 
-        var path = Path.Combine("wwwroot_test", "files");
-        Directory.CreateDirectory(path);
-        File.WriteAllText(Path.Combine(path, "test.pdf"), "dummy content");
+        var result = await _controller.DownloadLecture(1);
 
-        var result = await _controller.DownloadLecture(10);
-        Assert.That(result, Is.InstanceOf<FileContentResult>());
+        Assert.That(result, Is.InstanceOf<ForbidResult>());
+    }
+
+    [Test]
+    public async Task StartTest_StudentEnrolled_ReturnsView()
+    {
+        await SeedDataAsync();
+        var group = await _context.Groups.FindAsync(1);
+        var subject = await _context.Subjects.FindAsync(1);
+        subject.EnrolledGroups.Add(group);
+
+        var test = new Test
+        {
+            Id = 1, Title = "T1", Status = ContentStatus.Published, SubjectId = 1,
+            Questions = new List<Question>()
+        };
+        _context.Tests.Add(test);
+        await _context.SaveChangesAsync();
+
+        SetUserRole("Student", "s1");
+
+        var result = await _controller.StartTest(1);
+
+        Assert.That(result, Is.InstanceOf<ViewResult>());
+        var model = ((ViewResult)result).Model as Test;
+        Assert.That(model.Id, Is.EqualTo(1));
     }
 }
