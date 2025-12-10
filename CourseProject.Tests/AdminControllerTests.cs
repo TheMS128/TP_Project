@@ -35,19 +35,15 @@ public class AdminControllerTests
             .EnableSensitiveDataLogging()
             .Options;
 
-        // 3. Поднимаем контекст
         _context = new ApplicationDbContext(options);
         _context.Database.EnsureCreated();
 
-        // 4. Мокаем UserManager
         var userStoreMock = new Mock<IUserStore<User>>();
         _mockUserManager = new Mock<UserManager<User>>(
             userStoreMock.Object, null, null, null, null, null, null, null, null);
 
-        // 5. Инициализируем контроллер
         _controller = new AdminController(_context, _mockUserManager.Object);
 
-        // 6. HttpContext для TempData
         var httpContext = new DefaultHttpContext();
         _controller.ControllerContext = new ControllerContext() { HttpContext = httpContext };
         _controller.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
@@ -60,8 +56,6 @@ public class AdminControllerTests
         _connection?.Close();
         _controller?.Dispose();
     }
-
-    // --- HELPERS ---
 
     private async Task SeedRolesAsync()
     {
@@ -84,18 +78,13 @@ public class AdminControllerTests
             Email = $"{name}@test.com",
             UserName = $"{name}@test.com",
             GroupId = groupId,
-            Description = "Default Description" // Обязательное поле
+            Description = "Default Description" 
         };
 
         _context.Users.Add(user);
-        // Прямая запись в таблицу связей для тестов выборки
         _context.UserRoles.Add(new IdentityUserRole<string> { UserId = userId, RoleId = roleId });
         await _context.SaveChangesAsync();
     }
-
-    // ============================================================
-    // ТЕСТЫ: ManageStudents
-    // ============================================================
 
     [Test]
     public async Task ManageStudents_ReturnsFilteredList()
@@ -107,12 +96,10 @@ public class AdminControllerTests
 
         await SeedUserWithRoleAsync("u1", "Ivan Ivanov", "role_student", 1);
         await SeedUserWithRoleAsync("u2", "Petr Petrov", "role_student", null);
-        await SeedUserWithRoleAsync("t1", "Teacher One", "role_teacher"); // Не должен попасть
+        await SeedUserWithRoleAsync("t1", "Teacher One", "role_teacher"); 
 
-        // Act
         var result = await _controller.ManageStudents("Ivan");
 
-        // Assert
         Assert.That(result, Is.InstanceOf<ViewResult>());
         var model = ((ViewResult)result).Model as ManageStudentsViewModel;
         Assert.That(model.Students, Has.Count.EqualTo(1));
@@ -131,7 +118,6 @@ public class AdminControllerTests
             Description = "Desc"
         };
 
-        // Имитируем успех создания
         _mockUserManager.Setup(u => u.CreateAsync(It.IsAny<User>(), It.IsAny<string>()))
             .ReturnsAsync(IdentityResult.Success);
         _mockUserManager.Setup(u => u.AddToRoleAsync(It.IsAny<User>(), "Student"))
@@ -139,7 +125,6 @@ public class AdminControllerTests
 
         var result = await _controller.CreateStudent(model);
 
-        // Проверяем редирект и вызовы
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
         _mockUserManager.Verify(u => u.CreateAsync(It.IsAny<User>(), "Pass"), Times.Once);
         _mockUserManager.Verify(u => u.AddToRoleAsync(It.IsAny<User>(), "Student"), Times.Once);
@@ -163,7 +148,6 @@ public class AdminControllerTests
 
         var result = await _controller.EditStudent(model);
 
-        // Проверяем, что в базе обновились поля (до вызова UpdateAsync контроллер меняет свойства объекта)
         var userInDb = await _context.Users.FindAsync("u1");
         Assert.That(userInDb.FullName, Is.EqualTo("New Name"));
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
@@ -184,10 +168,6 @@ public class AdminControllerTests
         Assert.That(user.GroupId, Is.EqualTo(5));
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
-
-    // ============================================================
-    // ТЕСТЫ: ManageGroups
-    // ============================================================
 
     [Test]
     public async Task ManageGroups_ReturnsList()
@@ -243,10 +223,6 @@ public class AdminControllerTests
         Assert.That(student.GroupId, Is.Null);
     }
 
-    // ============================================================
-    // ТЕСТЫ: ManageTeachers
-    // ============================================================
-
     [Test]
     public async Task ManageTeachers_ReturnsTeachers()
     {
@@ -264,7 +240,6 @@ public class AdminControllerTests
     [Test]
     public async Task CreateTeacher_Valid_CallsUserManager()
     {
-        // Создаем предмет для привязки
         _context.Subjects.Add(new Subject { Id = 10, Title = "Math", Description = "Desc" });
         await _context.SaveChangesAsync();
 
@@ -285,10 +260,6 @@ public class AdminControllerTests
         _mockUserManager.Verify(u => u.AddToRoleAsync(It.IsAny<User>(), "Teacher"), Times.Once);
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
-
-    // ============================================================
-    // ТЕСТЫ: ManageSubjects
-    // ============================================================
 
     [Test]
     public async Task ManageSubjects_ReturnsList()
@@ -337,7 +308,6 @@ public class AdminControllerTests
     [Test]
     public async Task ChangeSubjectStatus_ValidStructure_Publishes()
     {
-        // Создаем полную структуру: Предмет -> Лекции, Предмет -> Тесты -> Вопросы
         var subject = new Subject
         {
             Id = 1,
@@ -370,7 +340,6 @@ public class AdminControllerTests
     [Test]
     public async Task ChangeSubjectStatus_InvalidStructure_ReturnsError()
     {
-        // Предмет без лекций и тестов
         _context.Subjects.Add(new Subject
             { Id = 1, Title = "Empty", Description = "Desc", Status = ContentStatus.Hidden });
         await _context.SaveChangesAsync();
@@ -378,20 +347,15 @@ public class AdminControllerTests
         var result = await _controller.ChangeSubjectStatus(1, ContentStatus.Published);
 
         var dbSub = await _context.Subjects.FindAsync(1);
-        Assert.That(dbSub.Status, Is.EqualTo(ContentStatus.Hidden)); // Не изменился
-        Assert.That(_controller.TempData["SubjectStatusError"], Is.Not.Null); // Ошибка в TempData
+        Assert.That(dbSub.Status, Is.EqualTo(ContentStatus.Hidden)); 
+        Assert.That(_controller.TempData["SubjectStatusError"], Is.Not.Null); 
     }
-
-    // ============================================================
-    // ТЕСТЫ: DeleteUser
-    // ============================================================
 
     [Test]
     public async Task DeleteUser_Student_RedirectsToStudents()
     {
         var user = new User { Id = "u1", FullName = "S", Description = "D" };
 
-        // Настраиваем Mock UserManager для поиска и удаления
         _mockUserManager.Setup(u => u.FindByIdAsync("u1")).ReturnsAsync(user);
         _mockUserManager.Setup(u => u.IsInRoleAsync(user, "Student")).ReturnsAsync(true);
         _mockUserManager.Setup(u => u.DeleteAsync(user)).ReturnsAsync(IdentityResult.Success);
