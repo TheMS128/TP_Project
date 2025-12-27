@@ -2,21 +2,20 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace CourseProject.DataBase;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : IdentityDbContext<User, IdentityRole, string>(options)
 {
-    public DbSet<Group> Groups { get; set; }
-    public DbSet<Subject> Subjects { get; set; }
-    public DbSet<Lecture> Lectures { get; set; }
-    public DbSet<Test> Tests { get; set; }
-    public DbSet<Question> Questions { get; set; }
-    public DbSet<AnswerOption> AnswerOptions { get; set; }
-    public DbSet<StudentAnswer> StudentAnswers { get; set; }
-    public DbSet<TestAttempt> TestAttempts { get; set; }
+    public virtual DbSet<Group> Groups { get; set; }
+    public virtual DbSet<Subject> Subjects { get; set; }
+    public virtual DbSet<Lecture> Lectures { get; set; }
+    public virtual DbSet<Test> Tests { get; set; }
+    public virtual DbSet<Question> Questions { get; set; }
+    public virtual DbSet<AnswerOption> AnswerOptions { get; set; }
+    public virtual DbSet<StudentAnswer> StudentAnswers { get; set; }
+    public virtual DbSet<TestAttempt> TestAttempts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

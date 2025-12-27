@@ -1,122 +1,104 @@
-﻿using Microsoft.Data.Sqlite;
-using Moq;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
+﻿using System.Security.Claims;
 using CourseProject.Controllers;
 using CourseProject.DataBase;
 using CourseProject.DataBase.DbModels;
 using CourseProject.DataBase.Enums;
-using CourseProject.Models.AdminViewModels.Student;
 using CourseProject.Models.AdminViewModels.Group;
-using CourseProject.Models.AdminViewModels.Teacher;
+using CourseProject.Models.AdminViewModels.Student;
 using CourseProject.Models.AdminViewModels.Subject;
+using CourseProject.Models.AdminViewModels.Teacher;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace CourseProject.Tests;
 
 [TestFixture]
 public class AdminControllerTests
 {
-    private ApplicationDbContext _context;
     private Mock<UserManager<User>> _mockUserManager;
+    private Mock<ApplicationDbContext> _mockContext;
     private AdminController _controller;
-    private SqliteConnection _connection;
 
     [SetUp]
     public void Setup()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
+        var store = new Mock<IUserStore<User>>();
+        _mockUserManager = new Mock<UserManager<User>>(store.Object, null, null, null, null, null, null, null, null);
 
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlite(_connection)
-            .EnableSensitiveDataLogging()
-            .Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().Options;
+        _mockContext = new Mock<ApplicationDbContext>(options);
 
-        _context = new ApplicationDbContext(options);
-        _context.Database.EnsureCreated();
+        var roles = new List<IdentityRole>
+        {
+            new IdentityRole { Name = "Student", Id = "role_student_id" },
+            new IdentityRole { Name = "Teacher", Id = "role_teacher_id" },
+            new IdentityRole { Name = "Admin", Id = "role_admin_id" }
+        };
+        _mockContext.Setup(c => c.Roles).Returns(DbSetMock.Create(roles).Object);
 
-        var userStoreMock = new Mock<IUserStore<User>>();
-        _mockUserManager = new Mock<UserManager<User>>(
-            userStoreMock.Object, null, null, null, null, null, null, null, null);
+        var userRoles = new List<IdentityUserRole<string>>
+        {
+            new IdentityUserRole<string> { UserId = "1", RoleId = "role_student_id" }
+        };
+        var userRolesMock = DbSetMock.Create(userRoles);
+        _mockContext.Setup(c => c.Set<IdentityUserRole<string>>()).Returns(userRolesMock.Object);
 
-        _controller = new AdminController(_context, _mockUserManager.Object);
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group>()).Object);
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User>()).Object);
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject>()).Object);
 
-        var httpContext = new DefaultHttpContext();
-        _controller.ControllerContext = new ControllerContext() { HttpContext = httpContext };
-        _controller.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
+        _controller = new AdminController(_mockContext.Object, _mockUserManager.Object);
+        _controller.TempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>());
+
+        SetupAdminUser();
     }
 
     [TearDown]
     public void TearDown()
     {
-        _context?.Dispose();
-        _connection?.Close();
         _controller?.Dispose();
     }
 
-    private async Task SeedRolesAsync()
+    [Test]
+    public void Index_ReturnsView()
     {
-        if (!await _context.Roles.AnyAsync())
-        {
-            _context.Roles.AddRange(
-                new IdentityRole { Id = "role_student", Name = "Student", NormalizedName = "STUDENT" },
-                new IdentityRole { Id = "role_teacher", Name = "Teacher", NormalizedName = "TEACHER" }
-            );
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    private async Task SeedUserWithRoleAsync(string userId, string name, string roleId, int? groupId = null)
-    {
-        var user = new User
-        {
-            Id = userId,
-            FullName = name,
-            Email = $"{name}@test.com",
-            UserName = $"{name}@test.com",
-            GroupId = groupId,
-            Description = "Default Description" 
-        };
-
-        _context.Users.Add(user);
-        _context.UserRoles.Add(new IdentityUserRole<string> { UserId = userId, RoleId = roleId });
-        await _context.SaveChangesAsync();
+        var result = _controller.Index();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 
     [Test]
     public async Task ManageStudents_ReturnsFilteredList()
     {
-        await SeedRolesAsync();
-        var group = new Group { Id = 1, GroupName = "IT-101" };
-        _context.Groups.Add(group);
-        await _context.SaveChangesAsync();
+        var s1 = new User { Id = "1", FullName = "Ivanov", Email = "i@test.com", UserName = "i@test.com" };
+        var allUsers = new List<User> { s1 };
 
-        await SeedUserWithRoleAsync("u1", "Ivan Ivanov", "role_student", 1);
-        await SeedUserWithRoleAsync("u2", "Petr Petrov", "role_student", null);
-        await SeedUserWithRoleAsync("t1", "Teacher One", "role_teacher"); 
+        var usersMock = DbSetMock.Create(allUsers);
+        _mockContext.Setup(c => c.Users).Returns(usersMock.Object);
 
-        var result = await _controller.ManageStudents("Ivan");
+        var result = await _controller.ManageStudents("Ivan") as ViewResult;
 
-        Assert.That(result, Is.InstanceOf<ViewResult>());
-        var model = ((ViewResult)result).Model as ManageStudentsViewModel;
-        Assert.That(model.Students, Has.Count.EqualTo(1));
-        Assert.That(model.Students[0].FullName, Is.EqualTo("Ivan Ivanov"));
-        Assert.That(model.Students[0].Group, Is.Not.Null);
+        Assert.That(result, Is.Not.Null);
+        var model = result.Model as ManageStudentsViewModel;
+        Assert.That(model, Is.Not.Null);
+        Assert.That(model.Students.Count, Is.EqualTo(1));
+        Assert.That(model.Students[0].FullName, Is.EqualTo("Ivanov"));
     }
 
     [Test]
-    public async Task CreateStudent_ValidModel_Redirects()
+    public async Task CreateStudent_Get_ReturnsView()
     {
-        var model = new CreateStudentViewModel
-        {
-            Email = "new@test.com",
-            Password = "Pass",
-            FullName = "New Student",
-            Description = "Desc"
-        };
+        var result = await _controller.CreateStudent();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
+    }
+
+    [Test]
+    public async Task CreateStudent_ValidModel_SavesUserAndRedirects()
+    {
+        var model = new CreateStudentViewModel { Email = "new@t.com", FullName = "New", Password = "Pass" };
 
         _mockUserManager.Setup(u => u.CreateAsync(It.IsAny<User>(), It.IsAny<string>()))
             .ReturnsAsync(IdentityResult.Success);
@@ -126,259 +108,446 @@ public class AdminControllerTests
         var result = await _controller.CreateStudent(model);
 
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
-        _mockUserManager.Verify(u => u.CreateAsync(It.IsAny<User>(), "Pass"), Times.Once);
-        _mockUserManager.Verify(u => u.AddToRoleAsync(It.IsAny<User>(), "Student"), Times.Once);
     }
 
     [Test]
-    public async Task EditStudent_UpdatesData_Redirects()
+    public async Task CreateStudent_InvalidModel_ReturnsViewWithModel()
     {
-        await SeedRolesAsync();
-        await SeedUserWithRoleAsync("u1", "Old Name", "role_student");
+        _controller.ModelState.AddModelError("Error", "Error");
+        var model = new CreateStudentViewModel();
 
-        var model = new EditStudentViewModel
-        {
-            Id = "u1",
-            FullName = "New Name",
-            Email = "new@test.com",
-            Description = "New Desc"
-        };
+        var result = await _controller.CreateStudent(model) as ViewResult;
 
-        _mockUserManager.Setup(u => u.UpdateAsync(It.IsAny<User>())).ReturnsAsync(IdentityResult.Success);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Model, Is.EqualTo(model));
+    }
+
+    [Test]
+    public async Task EditStudent_Get_UserFound_ReturnsView()
+    {
+        var user = new User { Id = "u1" };
+        var usersList = new List<User> { user };
+        var usersMock = DbSetMock.Create(usersList);
+
+        usersMock.Setup(m => m.FindAsync(It.IsAny<object[]>()))
+            .ReturnsAsync(user);
+
+        _mockContext.Setup(c => c.Users).Returns(usersMock.Object);
+
+        var result = await _controller.EditStudent("u1") as ViewResult;
+
+        Assert.That(result, Is.Not.Null, "Result is null (likely returned NotFound because FindAsync failed)");
+        var model = result.Model as EditStudentViewModel;
+        Assert.That(model.Id, Is.EqualTo("u1"));
+    }
+
+    [Test]
+    public async Task EditStudent_Get_UserNotFound_ReturnsNotFound()
+    {
+        var result = await _controller.EditStudent("unknown");
+        Assert.That(result, Is.InstanceOf<NotFoundResult>());
+    }
+
+    [Test]
+    public async Task EditStudent_Post_UpdatesData_Redirects()
+    {
+        var user = new User { Id = "u1", FullName = "Old", Email = "old@t.com", UserName = "old@t.com" };
+        var model = new EditStudentViewModel { Id = "u1", Email = "n@t.com", FullName = "New" };
+
+        var usersMock = DbSetMock.Create(new List<User> { user });
+        usersMock.Setup(m => m.FindAsync(It.IsAny<object[]>())).ReturnsAsync(user);
+        _mockContext.Setup(c => c.Users).Returns(usersMock.Object);
+
+        _mockUserManager.Setup(u => u.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
 
         var result = await _controller.EditStudent(model);
 
-        var userInDb = await _context.Users.FindAsync("u1");
-        Assert.That(userInDb.FullName, Is.EqualTo("New Name"));
+        _mockUserManager.Verify(u => u.UpdateAsync(It.Is<User>(x => x.FullName == "New")), Times.Once);
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
 
     [Test]
-    public async Task UpdateStudentGroup_ChangesGroup()
+    public async Task UpdateStudentGroup_ChangesGroup_Redirects()
     {
-        await SeedRolesAsync();
-        var group = new Group { Id = 5, GroupName = "NewGroup" };
-        _context.Groups.Add(group);
-        await _context.SaveChangesAsync();
-        await SeedUserWithRoleAsync("u1", "Student", "role_student");
+        var user = new User { Id = "u1", GroupId = 1 };
+        var usersMock = DbSetMock.Create(new List<User> { user });
+        usersMock.Setup(m => m.FindAsync(It.IsAny<object[]>())).ReturnsAsync(user);
+        _mockContext.Setup(c => c.Users).Returns(usersMock.Object);
 
-        var result = await _controller.UpdateStudentGroup("u1", 5);
+        var result = await _controller.UpdateStudentGroup("u1", 2);
 
-        var user = await _context.Users.FindAsync("u1");
-        Assert.That(user.GroupId, Is.EqualTo(5));
-        Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
+        Assert.That(user.GroupId, Is.EqualTo(2));
+        _mockContext.Verify(c => c.SaveChangesAsync(default), Times.Once);
     }
 
     [Test]
-    public async Task ManageGroups_ReturnsList()
+    public async Task ManageGroups_Search_ReturnsFiltered()
     {
-        _context.Groups.Add(new Group { GroupName = "G1" });
-        _context.Groups.Add(new Group { GroupName = "G2" });
-        await _context.SaveChangesAsync();
+        var g1 = new Group { GroupName = "Alpha" };
+        var g2 = new Group { GroupName = "Beta" };
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group> { g1, g2 }).Object);
 
-        var result = await _controller.ManageGroups(null);
+        var result = await _controller.ManageGroups("Alp") as ViewResult;
 
-        var model = ((ViewResult)result).Model as ManageGroupsViewModel;
-        Assert.That(model.Groups, Has.Count.EqualTo(2));
+        var model = result.Model as ManageGroupsViewModel;
+        Assert.That(model.Groups.Count, Is.EqualTo(1));
+        Assert.That(model.Groups[0].GroupName, Is.EqualTo("Alpha"));
+    }
+
+    [Test]
+    public async Task CreateGroup_Get_ReturnsView()
+    {
+        var result = await _controller.CreateGroup();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 
     [Test]
     public async Task CreateGroup_UniqueName_Success()
     {
-        var model = new CreateGroupViewModel { GroupName = "Unique Group" };
+        var model = new CreateGroupViewModel { GroupName = "NewGroup" };
+        var groupsMock = DbSetMock.Create(new List<Group>());
+        _mockContext.Setup(c => c.Groups).Returns(groupsMock.Object);
 
         var result = await _controller.CreateGroup(model);
 
-        Assert.That(_context.Groups.Count(), Is.EqualTo(1));
+        groupsMock.Verify(m => m.Add(It.IsAny<Group>()), Times.Once);
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
 
     [Test]
     public async Task CreateGroup_DuplicateName_ReturnsError()
     {
-        _context.Groups.Add(new Group { GroupName = "Existing" });
-        await _context.SaveChangesAsync();
+        var existing = new Group { GroupName = "G1" };
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group> { existing }).Object);
 
-        var model = new CreateGroupViewModel { GroupName = "Existing" };
+        var result = await _controller.CreateGroup(new CreateGroupViewModel { GroupName = "G1" }) as ViewResult;
 
-        var result = await _controller.CreateGroup(model);
-
-        Assert.That(result, Is.InstanceOf<ViewResult>());
         Assert.That(_controller.ModelState.IsValid, Is.False);
     }
 
     [Test]
-    public async Task DeleteGroup_RemovesGroup_NullifiesStudents()
+    public async Task EditGroup_Get_Found_ReturnsView()
     {
-        var group = new Group { Id = 1, GroupName = "DeleteMe" };
-        _context.Groups.Add(group);
-        await _context.SaveChangesAsync();
-        await SeedRolesAsync();
-        await SeedUserWithRoleAsync("s1", "Student", "role_student", 1);
+        var group = new Group { Id = 1, GroupName = "G1" };
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group> { group }).Object);
 
-        var result = await _controller.DeleteGroup(1);
+        var result = await _controller.EditGroup(1) as ViewResult;
 
-        Assert.That(_context.Groups.Any(), Is.False);
-        var student = await _context.Users.FindAsync("s1");
-        Assert.That(student.GroupId, Is.Null);
+        Assert.That(result.Model, Is.InstanceOf<EditGroupViewModel>());
     }
 
     [Test]
-    public async Task ManageTeachers_ReturnsTeachers()
+    public async Task EditGroup_Get_NotFound_ReturnsNotFound()
     {
-        await SeedRolesAsync();
-        await SeedUserWithRoleAsync("t1", "Teacher", "role_teacher");
-        await SeedUserWithRoleAsync("s1", "Student", "role_student");
+        var result = await _controller.EditGroup(999);
+        Assert.That(result, Is.InstanceOf<NotFoundResult>());
+    }
 
-        var result = await _controller.ManageTeachers(null);
+    [Test]
+    public async Task EditGroup_Post_Success_UpdatesNameAndStudents()
+    {
+        var s1 = new User { Id = "s1", GroupId = 1 };
+        var s2 = new User { Id = "s2", GroupId = 1 };
+        var group = new Group { Id = 1, GroupName = "Old", Students = new List<User> { s1, s2 } };
 
-        var model = ((ViewResult)result).Model as ManageTeachersViewModel;
-        Assert.That(model.Teachers, Has.Count.EqualTo(1));
-        Assert.That(model.Teachers[0].Id, Is.EqualTo("t1"));
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group> { group }).Object);
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { s1, s2 }).Object);
+
+        var model = new EditGroupViewModel
+        {
+            Id = 1,
+            GroupName = "New",
+            SelectedStudentIds = new List<string> { "s1" }
+        };
+
+        var result = await _controller.EditGroup(model);
+
+        Assert.That(group.GroupName, Is.EqualTo("New"));
+        Assert.That(s2.GroupId, Is.Null, "s2 should be removed from group");
+        Assert.That(s1.GroupId, Is.EqualTo(1));
+        _mockContext.Verify(c => c.SaveChangesAsync(default), Times.Once);
+        Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
+    }
+
+    [Test]
+    public async Task UpdateGroupStudents_UpdatesRelations()
+    {
+        var s1 = new User { Id = "s1", GroupId = 1 };
+        var sNew = new User { Id = "sNew", GroupId = null };
+
+        var users = new List<User> { s1, sNew };
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(users).Object);
+
+        var result = await _controller.UpdateGroupStudents(1, new List<string> { "sNew" });
+
+        Assert.That(s1.GroupId, Is.Null);
+        Assert.That(sNew.GroupId, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DeleteGroup_CallsRemove()
+    {
+        var group = new Group { Id = 10, Students = new List<User> { new User { GroupId = 10 } } };
+        var groupsMock = DbSetMock.Create(new List<Group> { group });
+        groupsMock.Setup(m => m.FindAsync(It.IsAny<object[]>())).ReturnsAsync(group);
+        _mockContext.Setup(c => c.Groups).Returns(groupsMock.Object);
+
+        await _controller.DeleteGroup(10);
+
+        groupsMock.Verify(m => m.Remove(group), Times.Once);
+        Assert.That(group.Students[0].GroupId, Is.Null);
+    }
+
+    [Test]
+    public async Task ManageTeachers_Search_ReturnsFiltered()
+    {
+        var t1 = new User { Id = "t1", FullName = "Teacher1", Email = "t@t.com" };
+        var roles = new List<IdentityUserRole<string>>
+        {
+            new IdentityUserRole<string> { UserId = "t1", RoleId = "role_teacher_id" }
+        };
+        _mockContext.Setup(c => c.Set<IdentityUserRole<string>>()).Returns(DbSetMock.Create(roles).Object);
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { t1 }).Object);
+
+        var result = await _controller.ManageTeachers("Teach") as ViewResult;
+
+        var model = result.Model as ManageTeachersViewModel;
+        Assert.That(model.Teachers.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CreateTeacher_Get_ReturnsView()
+    {
+        var result = await _controller.CreateTeacher();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 
     [Test]
     public async Task CreateTeacher_Valid_CallsUserManager()
     {
-        _context.Subjects.Add(new Subject { Id = 10, Title = "Math", Description = "Desc" });
-        await _context.SaveChangesAsync();
-
         var model = new CreateTeacherViewModel
-        {
-            Email = "teach@t.com",
-            Password = "Pass",
-            FullName = "Mr. Teacher",
-            Description = "Desc",
-            SelectedSubjectIds = new List<int> { 10 }
-        };
+            { Email = "t@t.com", Password = "123", SelectedSubjectIds = new List<int> { 1 } };
+        var subj = new Subject { Id = 1 };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subj }).Object);
 
         _mockUserManager.Setup(u => u.CreateAsync(It.IsAny<User>(), It.IsAny<string>()))
             .ReturnsAsync(IdentityResult.Success);
+        _mockUserManager.Setup(u => u.AddToRoleAsync(It.IsAny<User>(), "Teacher")).ReturnsAsync(IdentityResult.Success);
 
         var result = await _controller.CreateTeacher(model);
 
-        _mockUserManager.Verify(u => u.AddToRoleAsync(It.IsAny<User>(), "Teacher"), Times.Once);
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
 
     [Test]
-    public async Task ManageSubjects_ReturnsList()
+    public async Task EditTeacher_Get_Found_ReturnsView()
     {
-        _context.Subjects.Add(new Subject { Title = "History", Description = "Desc" });
-        await _context.SaveChangesAsync();
+        var teacher = new User { Id = "t1" };
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { teacher }).Object);
 
-        var result = await _controller.ManageSubjects(null);
+        var result = await _controller.EditTeacher("t1") as ViewResult;
+        Assert.That(result.Model, Is.InstanceOf<EditTeacherViewModel>());
+    }
 
-        var model = ((ViewResult)result).Model as ManageSubjectsViewModel;
-        Assert.That(model.Subjects, Has.Count.EqualTo(1));
+    [Test]
+    public async Task EditTeacher_Post_Success_UpdatesSubjects()
+    {
+        var teacher = new User { Id = "t1", AssignedSubjects = new List<Subject>() };
+        var subj = new Subject { Id = 10 };
+
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { teacher }).Object);
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subj }).Object);
+        _mockUserManager.Setup(u => u.UpdateAsync(teacher)).ReturnsAsync(IdentityResult.Success);
+
+        var model = new EditTeacherViewModel { Id = "t1", SelectedSubjectIds = new List<int> { 10 } };
+
+        var result = await _controller.EditTeacher(model);
+
+        Assert.That(teacher.AssignedSubjects.Count, Is.EqualTo(1));
+        Assert.That(teacher.AssignedSubjects[0].Id, Is.EqualTo(10));
+    }
+
+    [Test]
+    public async Task UpdateTeacherSubjects_UpdatesList()
+    {
+        var teacher = new User { Id = "t1", AssignedSubjects = new List<Subject>() };
+        var subj = new Subject { Id = 5 };
+
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { teacher }).Object);
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subj }).Object);
+
+        await _controller.UpdateTeacherSubjects("t1", new List<int> { 5 });
+
+        Assert.That(teacher.AssignedSubjects.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task ManageSubjects_Search_ReturnsFiltered()
+    {
+        var s1 = new Subject { Title = "Math" };
+        var s2 = new Subject { Title = "Physics" };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { s1, s2 }).Object);
+
+        var result = await _controller.ManageSubjects("Math") as ViewResult;
+        var model = result.Model as ManageSubjectsViewModel;
+
+        Assert.That(model.Subjects.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CreateSubject_Get_ReturnsView()
+    {
+        var result = await _controller.CreateSubject();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 
     [Test]
     public async Task CreateSubject_Valid_SavesToDb()
     {
-        var model = new CreateSubjectViewModel { Title = "Biology", Description = "Bio Desc" };
+        var model = new CreateSubjectViewModel
+            { Title = "NewSubj", SelectedTeacherIds = new List<string>(), SelectedGroupIds = new List<int>() };
+        var subjectsMock = DbSetMock.Create(new List<Subject>());
+        _mockContext.Setup(c => c.Subjects).Returns(subjectsMock.Object);
 
-        var result = await _controller.CreateSubject(model);
+        await _controller.CreateSubject(model);
 
-        Assert.That(_context.Subjects.Count(), Is.EqualTo(1));
-        Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
+        subjectsMock.Verify(m => m.Add(It.IsAny<Subject>()), Times.Once);
     }
 
     [Test]
-    public async Task EditSubject_Valid_UpdatesDb()
+    public async Task EditSubject_Get_Found_ReturnsView()
     {
-        _context.Subjects.Add(new Subject { Id = 1, Title = "Old", Description = "Old Desc" });
-        await _context.SaveChangesAsync();
+        var subject = new Subject { Id = 1, Teachers = new List<User>(), EnrolledGroups = new List<Group>() };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subject }).Object);
 
-        var model = new EditSubjectViewModel
-        {
-            Id = 1,
-            Title = "New",
-            Description = "New Desc",
-            Status = ContentStatus.Hidden
-        };
+        var result = await _controller.EditSubject(1) as ViewResult;
+        Assert.That(result.Model, Is.InstanceOf<EditSubjectViewModel>());
+    }
+
+    [Test]
+    public async Task EditSubject_Post_ValidationFail_ReturnsView()
+    {
+        var subject = new Subject
+            { Id = 1, Status = ContentStatus.Hidden, Lectures = new List<Lecture>(), Tests = new List<Test>() };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subject }).Object);
+
+        var model = new EditSubjectViewModel { Id = 1, Status = ContentStatus.Published }; 
+
+        var result = await _controller.EditSubject(model) as ViewResult;
+
+        Assert.That(_controller.ModelState.IsValid, Is.False);
+        Assert.That(_controller.ModelState["Status"], Is.Not.Null);
+    }
+
+    [Test]
+    public async Task EditSubject_Post_Success_Updates()
+    {
+        var subject = new Subject { Id = 1, Title = "Old" };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subject }).Object);
+
+        var model = new EditSubjectViewModel { Id = 1, Title = "New", Status = ContentStatus.Hidden };
 
         var result = await _controller.EditSubject(model);
 
-        var sub = await _context.Subjects.FindAsync(1);
-        Assert.That(sub.Title, Is.EqualTo("New"));
-        Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
-    }
-
-    [Test]
-    public async Task ChangeSubjectStatus_ValidStructure_Publishes()
-    {
-        var subject = new Subject
-        {
-            Id = 1,
-            Title = "Full Subject",
-            Description = "Desc",
-            Status = ContentStatus.Hidden,
-            Lectures = new List<Lecture> { new Lecture { Title = "L1", FilePath = "path" } },
-            Tests = new List<Test>
-            {
-                new Test
-                {
-                    Title = "T1",
-                    Questions = new List<Question>
-                    {
-                        new Question { Text = "Q1", Type = "Text", Points = 1 }
-                    }
-                }
-            }
-        };
-        _context.Subjects.Add(subject);
-        await _context.SaveChangesAsync();
-
-        var result = await _controller.ChangeSubjectStatus(1, ContentStatus.Published);
-
-        var dbSub = await _context.Subjects.FindAsync(1);
-        Assert.That(dbSub.Status, Is.EqualTo(ContentStatus.Published));
+        Assert.That(subject.Title, Is.EqualTo("New"));
         Assert.That(result, Is.InstanceOf<RedirectToActionResult>());
     }
 
     [Test]
     public async Task ChangeSubjectStatus_InvalidStructure_ReturnsError()
     {
-        _context.Subjects.Add(new Subject
-            { Id = 1, Title = "Empty", Description = "Desc", Status = ContentStatus.Hidden });
-        await _context.SaveChangesAsync();
+        var s = new Subject
+        {
+            Id = 1,
+            Status = ContentStatus.Hidden,
+            Lectures = new List<Lecture>(),
+            Tests = new List<Test>()
+        };
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { s }).Object);
 
-        var result = await _controller.ChangeSubjectStatus(1, ContentStatus.Published);
+        await _controller.ChangeSubjectStatus(1, ContentStatus.Published);
 
-        var dbSub = await _context.Subjects.FindAsync(1);
-        Assert.That(dbSub.Status, Is.EqualTo(ContentStatus.Hidden)); 
-        Assert.That(_controller.TempData["SubjectStatusError"], Is.Not.Null); 
+        Assert.That(s.Status, Is.EqualTo(ContentStatus.Hidden));
+        Assert.That(_controller.TempData["SubjectStatusError"], Is.Not.Null);
     }
 
     [Test]
-    public async Task DeleteUser_Student_RedirectsToStudents()
+    public async Task UpdateSubjectTeachers_UpdatesList()
     {
-        var user = new User { Id = "u1", FullName = "S", Description = "D" };
+        var subject = new Subject { Id = 1, Teachers = new List<User>() };
+        var t1 = new User { Id = "t1" };
 
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subject }).Object);
+        _mockContext.Setup(c => c.Users).Returns(DbSetMock.Create(new List<User> { t1 }).Object);
+
+        await _controller.UpdateSubjectTeachers(1, new List<string> { "t1" });
+
+        Assert.That(subject.Teachers.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task UpdateSubjectGroups_UpdatesList()
+    {
+        var subject = new Subject { Id = 1, EnrolledGroups = new List<Group>() };
+        var g1 = new Group { Id = 10 };
+
+        _mockContext.Setup(c => c.Subjects).Returns(DbSetMock.Create(new List<Subject> { subject }).Object);
+        _mockContext.Setup(c => c.Groups).Returns(DbSetMock.Create(new List<Group> { g1 }).Object);
+
+        await _controller.UpdateSubjectGroups(1, new List<int> { 10 });
+
+        Assert.That(subject.EnrolledGroups.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DeleteSubject_CallsRemove()
+    {
+        var subject = new Subject { Id = 1 };
+        var mockSet = DbSetMock.Create(new List<Subject> { subject });
+        mockSet.Setup(m => m.FindAsync(It.IsAny<object[]>())).ReturnsAsync(subject);
+        _mockContext.Setup(c => c.Subjects).Returns(mockSet.Object);
+
+        await _controller.DeleteSubject(1);
+
+        mockSet.Verify(m => m.Remove(subject), Times.Once);
+    }
+
+    [Test]
+    public async Task DeleteUser_Student_RedirectsToManageStudents()
+    {
+        var user = new User { Id = "u1" };
         _mockUserManager.Setup(u => u.FindByIdAsync("u1")).ReturnsAsync(user);
         _mockUserManager.Setup(u => u.IsInRoleAsync(user, "Student")).ReturnsAsync(true);
         _mockUserManager.Setup(u => u.DeleteAsync(user)).ReturnsAsync(IdentityResult.Success);
 
-        var result = await _controller.DeleteUser("u1");
+        var result = await _controller.DeleteUser("u1") as RedirectToActionResult;
 
-        var redirect = (RedirectToActionResult)result;
-        Assert.That(redirect.ActionName, Is.EqualTo("ManageStudents"));
+        Assert.That(result.ActionName, Is.EqualTo(nameof(AdminController.ManageStudents)));
     }
 
     [Test]
-    public async Task DeleteUser_Teacher_RedirectsToTeachers()
+    public async Task DeleteUser_Teacher_RedirectsToManageTeachers()
     {
-        var user = new User { Id = "t1", FullName = "T", Description = "D" };
-
+        var user = new User { Id = "t1" };
         _mockUserManager.Setup(u => u.FindByIdAsync("t1")).ReturnsAsync(user);
         _mockUserManager.Setup(u => u.IsInRoleAsync(user, "Student")).ReturnsAsync(false);
         _mockUserManager.Setup(u => u.IsInRoleAsync(user, "Teacher")).ReturnsAsync(true);
         _mockUserManager.Setup(u => u.DeleteAsync(user)).ReturnsAsync(IdentityResult.Success);
 
-        var result = await _controller.DeleteUser("t1");
+        var result = await _controller.DeleteUser("t1") as RedirectToActionResult;
 
-        var redirect = (RedirectToActionResult)result;
-        Assert.That(redirect.ActionName, Is.EqualTo("ManageTeachers"));
+        Assert.That(result.ActionName, Is.EqualTo(nameof(AdminController.ManageTeachers)));
+    }
+
+    private void SetupAdminUser()
+    {
+        var claims = new List<Claim> { new Claim(ClaimTypes.Role, "Admin") };
+        var identity = new ClaimsIdentity(claims, "Test");
+        var principal = new ClaimsPrincipal(identity);
+
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
     }
 }

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using SignInResult = Microsoft.AspNetCore.Identity.SignInResult;
 
 namespace CourseProject.Tests;
 
@@ -36,7 +37,7 @@ public class AccountControllerTests
     [TearDown]
     public void TearDown()
     {
-        _controller.Dispose();
+        _controller?.Dispose();
     }
 
     [Test]
@@ -54,6 +55,7 @@ public class AccountControllerTests
 
         var result = _controller.Login();
         var redirect = result as RedirectToActionResult;
+
         Assert.That(redirect, Is.Not.Null);
         Assert.That(redirect.ActionName, Is.EqualTo("Index"));
         Assert.That(redirect.ControllerName, Is.EqualTo("Home"));
@@ -68,6 +70,7 @@ public class AccountControllerTests
         };
 
         var result = _controller.Login();
+
         Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 
@@ -80,7 +83,7 @@ public class AccountControllerTests
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(email)).ReturnsAsync(user);
         _mockSignInManager.Setup(x => x.PasswordSignInAsync(user.UserName, password, false, false))
-            .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
+            .ReturnsAsync(SignInResult.Success);
         _mockUserManager.Setup(x => x.IsInRoleAsync(user, "Admin")).ReturnsAsync(true);
 
         var result = await _controller.Login(email, password);
@@ -100,7 +103,7 @@ public class AccountControllerTests
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(email)).ReturnsAsync(user);
         _mockSignInManager.Setup(x => x.PasswordSignInAsync(user.UserName, password, false, false))
-            .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
+            .ReturnsAsync(SignInResult.Success);
         _mockUserManager.Setup(x => x.IsInRoleAsync(user, "Admin")).ReturnsAsync(false);
 
         var result = await _controller.Login(email, password);
@@ -120,7 +123,7 @@ public class AccountControllerTests
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(email)).ReturnsAsync(user);
         _mockSignInManager.Setup(x => x.PasswordSignInAsync(user.UserName, password, false, false))
-            .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
+            .ReturnsAsync(SignInResult.Failed);
 
         var result = await _controller.Login(email, password);
         var viewResult = result as ViewResult;
@@ -128,6 +131,55 @@ public class AccountControllerTests
         Assert.That(viewResult, Is.Not.Null);
         Assert.That(_controller.ModelState.IsValid, Is.False);
         Assert.That(_controller.ModelState.ErrorCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Login_Post_UserNotFound_ReturnsViewWithModelError()
+    {
+        string email = "unknown@test.com";
+
+        _mockUserManager.Setup(x => x.FindByEmailAsync(email)).ReturnsAsync((User)null);
+
+        var result = await _controller.Login(email, "any");
+        var viewResult = result as ViewResult;
+
+        Assert.That(viewResult, Is.Not.Null);
+        Assert.That(_controller.ModelState.IsValid, Is.False);
+        var error = _controller.ModelState[string.Empty].Errors[0];
+        Assert.That(error.ErrorMessage, Is.EqualTo("Неверный логин или пароль"));
+    }
+
+    [Test]
+    public async Task Login_Post_UserHasNoUserName_ReturnsViewWithModelError()
+    {
+        string email = "nousername@test.com";
+        var user = new User { Email = email, UserName = null };
+
+        _mockUserManager.Setup(x => x.FindByEmailAsync(email)).ReturnsAsync(user);
+
+        var result = await _controller.Login(email, "any");
+        var viewResult = result as ViewResult;
+
+        Assert.That(viewResult, Is.Not.Null);
+        _mockSignInManager.Verify(
+            x => x.PasswordSignInAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()),
+            Times.Never);
+
+        Assert.That(_controller.ModelState.IsValid, Is.False);
+        var error = _controller.ModelState[string.Empty].Errors[0];
+        Assert.That(error.ErrorMessage, Is.EqualTo("Неверный логин или пароль"));
+    }
+
+    [Test]
+    public async Task Login_Post_InvalidModelState_ReturnsView()
+    {
+        _controller.ModelState.AddModelError("email", "Required");
+
+        var result = await _controller.Login("bad", "bad");
+        var viewResult = result as ViewResult;
+
+        Assert.That(viewResult, Is.Not.Null);
+        _mockUserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Test]
@@ -141,5 +193,13 @@ public class AccountControllerTests
         Assert.That(redirect, Is.Not.Null);
         Assert.That(redirect.ActionName, Is.EqualTo("Login"));
         Assert.That(redirect.ControllerName, Is.EqualTo("Account"));
+        _mockSignInManager.Verify(x => x.SignOutAsync(), Times.Once);
+    }
+
+    [Test]
+    public void AccessDenied_ReturnsView()
+    {
+        var result = _controller.AccessDenied();
+        Assert.That(result, Is.InstanceOf<ViewResult>());
     }
 }
